@@ -1,3 +1,4 @@
+  
 /*
  * Written by Brandon Wahl
  * 
@@ -107,10 +108,12 @@ public class InputReader : Singleton<InputReader>
             if (Instance == null) CreateInstance();
 
             if (_playerInput != null) return _playerInput;
+            else Debug.Log("[InputReader] _playerInput is null in PlayerInput getter.");
 
             // Tries to get PlayerInput from the singleton GameObject
             _playerInput = Instance.GetComponent<PlayerInput>();
             if (_playerInput != null) return _playerInput;
+            else Debug.Log("[InputReader] _playerInput is still null after GetComponent.");
 
             // Creates a PlayerInput component on the singleton GameObject if none exists
             PlayerInput newInput = Instance.gameObject.AddComponent<PlayerInput>();
@@ -259,6 +262,7 @@ public class InputReader : Singleton<InputReader>
             {
                 singletonPlayerInput = gameObject.AddComponent<PlayerInput>();
             }
+            else Debug.Log("[InputReader] singletonPlayerInput already exists.");
 
             if (singletonPlayerInput.actions == null && playerControls != null)
             {
@@ -277,6 +281,26 @@ public class InputReader : Singleton<InputReader>
         EnsureCursorManager(PlayerInput);
     }
 
+      /// <summary>
+    /// Static method to assign a new PlayerInput instance.
+    /// For compatibility with existing code that calls InputReader.AssignPlayerInput().
+    /// </summary>
+    /// <param name="newPlayerInput">The PlayerInput to assign.</param>
+    public static void AssignPlayerInput(PlayerInput newPlayerInput)
+    {
+        if (Instance == null)
+            CreateInstance();
+
+        if (newPlayerInput == null)
+        {
+            Debug.LogWarning("InputReader: Cannot assign null PlayerInput!");
+            return;
+        }
+        else Debug.Log("[InputReader] AssignPlayerInput received a valid PlayerInput.");
+
+        Instance.RebindTo(newPlayerInput, switchToGameplay: true);
+    }
+
     private void OnDestroy()
     {
         SceneManager.sceneLoaded -= HandleSceneLoaded;
@@ -293,6 +317,7 @@ public class InputReader : Singleton<InputReader>
     {
         if (_playerInput != null)
             return;
+        else Debug.Log("[InputReader] _playerInput is null in HandleSceneLoaded.");
 
         if (scene.isLoaded && TryBindFromScene(scene))
             return;
@@ -397,6 +422,7 @@ public class InputReader : Singleton<InputReader>
         }
         else
         {
+            Debug.Log("[InputReader] _playerInput is null in LookInput update.");
             activeControlScheme = string.Empty;
         }
     }
@@ -415,25 +441,6 @@ public class InputReader : Singleton<InputReader>
     }
 
     /// <summary>
-    /// Static method to assign a new PlayerInput instance.
-    /// For compatibility with existing code that calls InputReader.AssignPlayerInput().
-    /// </summary>
-    /// <param name="newPlayerInput">The PlayerInput to assign.</param>
-    public static void AssignPlayerInput(PlayerInput newPlayerInput)
-    {
-        if (Instance == null)
-            CreateInstance();
-
-        if (newPlayerInput == null)
-        {
-            Debug.LogWarning("InputReader: Cannot assign null PlayerInput!");
-            return;
-        }
-
-        Instance.RebindTo(newPlayerInput, switchToGameplay: true);
-    }
-
-    /// <summary>
     /// Rebind this InputReader to a new PlayerInput instance (e.g., after scene restart or player respawn).
     /// Safely swaps action references and ensures the correct action map is active.
     /// </summary>
@@ -446,6 +453,7 @@ public class InputReader : Singleton<InputReader>
             Debug.LogWarning("[InputReader] RebindTo called with null PlayerInput");
             return;
         }
+        else Debug.Log("[InputReader] RebindTo received a valid PlayerInput.");
 
         // Disable any old actions to avoid ghost reads
         SetAllActionsEnabled(false);
@@ -627,7 +635,10 @@ public class InputReader : Singleton<InputReader>
     private InputAction GetAction(string name)
     {
         if (PlayerInput == null || PlayerInput.actions == null)
+        {
+            Debug.Log("[InputReader] PlayerInput or PlayerInput.actions is null in GetAction.");
             return null;
+        }
 
         try
         {
