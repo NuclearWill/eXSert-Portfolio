@@ -108,10 +108,12 @@ public class InputReader : Singleton<InputReader>
             if (Instance == null) CreateInstance();
 
             if (_playerInput != null) return _playerInput;
+            else Debug.Log("[InputReader] _playerInput is null in PlayerInput getter.");
 
             // Tries to get PlayerInput from the singleton GameObject
             _playerInput = Instance.GetComponent<PlayerInput>();
             if (_playerInput != null) return _playerInput;
+            else Debug.Log("[InputReader] _playerInput is still null after GetComponent.");
 
             // Creates a PlayerInput component on the singleton GameObject if none exists
             PlayerInput newInput = Instance.gameObject.AddComponent<PlayerInput>();
@@ -260,6 +262,7 @@ public class InputReader : Singleton<InputReader>
             {
                 singletonPlayerInput = gameObject.AddComponent<PlayerInput>();
             }
+            else Debug.Log("[InputReader] singletonPlayerInput already exists.");
 
             if (singletonPlayerInput.actions == null && playerControls != null)
             {
@@ -293,6 +296,7 @@ public class InputReader : Singleton<InputReader>
             Debug.LogWarning("InputReader: Cannot assign null PlayerInput!");
             return;
         }
+        else Debug.Log("[InputReader] AssignPlayerInput received a valid PlayerInput.");
 
         Instance.RebindTo(newPlayerInput, switchToGameplay: true);
     }
@@ -313,6 +317,7 @@ public class InputReader : Singleton<InputReader>
     {
         if (_playerInput != null)
             return;
+        else Debug.Log("[InputReader] _playerInput is null in HandleSceneLoaded.");
 
         if (scene.isLoaded && TryBindFromScene(scene))
             return;
@@ -417,6 +422,7 @@ public class InputReader : Singleton<InputReader>
         }
         else
         {
+            Debug.Log("[InputReader] _playerInput is null in LookInput update.");
             activeControlScheme = string.Empty;
         }
     }
@@ -447,6 +453,7 @@ public class InputReader : Singleton<InputReader>
             Debug.LogWarning("[InputReader] RebindTo called with null PlayerInput");
             return;
         }
+        else Debug.Log("[InputReader] RebindTo received a valid PlayerInput.");
 
         // Disable any old actions to avoid ghost reads
         SetAllActionsEnabled(false);
@@ -628,7 +635,10 @@ public class InputReader : Singleton<InputReader>
     private InputAction GetAction(string name)
     {
         if (PlayerInput == null || PlayerInput.actions == null)
+        {
+            Debug.Log("[InputReader] PlayerInput or PlayerInput.actions is null in GetAction.");
             return null;
+        }
 
         try
         {
