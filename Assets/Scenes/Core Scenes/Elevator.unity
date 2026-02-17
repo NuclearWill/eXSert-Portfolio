@@ -17837,6 +17837,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 527850670}
+  - component: {fileID: 527850671}
   m_Layer: 0
   m_Name: Wave 4
   m_TagString: Untagged
@@ -17862,6 +17863,19 @@ Transform:
   - {fileID: 263839175}
   m_Father: {fileID: 871761655}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &527850671
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 527850669}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f18c81f40094635429946beef111a6d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Progression.Encounters.Wave
+  WaveObjectiveText: Defeat all enemies in this wave!
 --- !u!1 &528475536
 GameObject:
   m_ObjectHideFlags: 0
@@ -22949,6 +22963,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 712368069}
+  - component: {fileID: 712368070}
   m_Layer: 0
   m_Name: Wave 3
   m_TagString: Untagged
@@ -22972,6 +22987,19 @@ Transform:
   - {fileID: 1450752177}
   m_Father: {fileID: 871761655}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &712368070
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 712368068}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f18c81f40094635429946beef111a6d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Progression.Encounters.Wave
+  WaveObjectiveText: Defeat all enemies in this wave!
 --- !u!1001 &718927581
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -28994,6 +29022,10 @@ PrefabInstance:
       propertyPath: objectToDrop
       value: 
       objectReference: {fileID: 1019690679}
+    - target: {fileID: 8530458340202710104, guid: efc588e010d594a4c94830813166a9e0, type: 3}
+      propertyPath: SendDebugMessages
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 8530458340202710104, guid: efc588e010d594a4c94830813166a9e0, type: 3}
       propertyPath: dropObjectOnClear
       value: 1
@@ -41036,6 +41068,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1252848859}
+  - component: {fileID: 1252848860}
   m_Layer: 0
   m_Name: Wave 2
   m_TagString: Untagged
@@ -41059,6 +41092,19 @@ Transform:
   - {fileID: 401475669}
   m_Father: {fileID: 871761655}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1252848860
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1252848858}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f18c81f40094635429946beef111a6d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Progression.Encounters.Wave
+  WaveObjectiveText: Defeat all enemies in this wave!
 --- !u!1 &1256263894
 GameObject:
   m_ObjectHideFlags: 0
@@ -41189,6 +41235,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1260765583}
+  - component: {fileID: 1260765584}
   m_Layer: 0
   m_Name: Wave 1
   m_TagString: Untagged
@@ -41212,6 +41259,19 @@ Transform:
   - {fileID: 990184245}
   m_Father: {fileID: 871761655}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1260765584
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1260765582}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f18c81f40094635429946beef111a6d4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Progression.Encounters.Wave
+  WaveObjectiveText: Defeat all enemies in this wave!
 --- !u!1001 &1261259515
 PrefabInstance:
   m_ObjectHideFlags: 0
