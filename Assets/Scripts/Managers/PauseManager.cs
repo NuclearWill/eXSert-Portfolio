@@ -27,7 +27,7 @@ public class PauseManager : Singletons.Singleton<PauseManager>
     [Header("Input Actions")]
     [SerializeField] private InputActionReference _navigationMenuActionReference;
     [SerializeField] private InputActionReference _swapMenuActionReference;
-    [SerializeField] private InputActionReference _backActionReference; // UI/Back button
+    [SerializeField] private InputActionReference _pauseActionReference;
 
     private MenuListManager menuListManager;
 
@@ -65,18 +65,19 @@ public class PauseManager : Singletons.Singleton<PauseManager>
         else
             _swapMenuActionReference.action.performed += OnSwapMenu;
 
-        if (_backActionReference == null || _backActionReference.action == null)
-            Debug.LogWarning($"Back Input Action Reference is not set in the inspector. UI/Back won't work properly");
+        if(_pauseActionReference == null || _pauseActionReference.action == null)
+            Debug.LogWarning($"Pause Input Action Reference is not set in the inspector. Pause/Back button won't work properly");
         else
-            _backActionReference.action.performed += OnPauseOrBack;
+            _pauseActionReference.action.performed += OnPauseOrBack;
 
         SceneManager.sceneLoaded += HandleSceneLoaded;
     }
 
     private void OnDisable()
     {
-        if (_backActionReference != null && _backActionReference.action != null)
-            _backActionReference.action.performed -= OnPauseOrBack;
+        // Unsubscribe from runtime Pause action
+        if (_pauseActionReference != null && _pauseActionReference.action != null)
+            _pauseActionReference.action.performed -= OnPauseOrBack;
 
         if (_navigationMenuActionReference != null && _navigationMenuActionReference.action != null)
             _navigationMenuActionReference.action.performed -= OnNavigationMenu;
@@ -84,9 +85,9 @@ public class PauseManager : Singletons.Singleton<PauseManager>
         if (_swapMenuActionReference != null && _swapMenuActionReference.action != null)
             _swapMenuActionReference.action.performed -= OnSwapMenu;
 
-
         SceneManager.sceneLoaded -= HandleSceneLoaded;
     }
+
 
     private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
@@ -103,6 +104,9 @@ public class PauseManager : Singletons.Singleton<PauseManager>
             return;
         }
         Debug.Log($"[PauseManager] OnPauseOrBack called - Current menu: {currentActiveMenu}, Menu count: {menuListManager.menusToManage.Count}, IsPaused: {IsPaused}");
+
+        // Force pause timescale whenever Pause is triggered
+        Time.timeScale = 0f;
 
         if(LogManager.Instance.unreadLogs.Count > 0 || DiaryManager.Instance.unreadDiaries.Count > 0)
             unreadEntriesNotif.SetActive(true);
@@ -228,6 +232,7 @@ public class PauseManager : Singletons.Singleton<PauseManager>
 
     private void ShowPauseMenu()
     {
+        Debug.Log(Time.timeScale + "is the current timescale when showing pause menu.");  
         Time.timeScale = 0f;
         IsPaused = true;
         currentActiveMenu = ActiveMenu.PauseMenu;

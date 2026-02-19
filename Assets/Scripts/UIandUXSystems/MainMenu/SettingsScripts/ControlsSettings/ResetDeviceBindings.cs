@@ -10,9 +10,31 @@ using UnityEngine.InputSystem;
 public class ResetDeviceBindings : MonoBehaviour
 {
     [SerializeField] private InputActionAsset _inputActions;
+    [SerializeField] private InputActionReference _resetBindingsActionReference;
 
     //Assign this string in the editor to the control scheme name you wish to reset
     private string _targetControlScheme;
+
+    void OnEnable()
+    {
+        if (_resetBindingsActionReference != null && _resetBindingsActionReference.action != null)
+        {
+            _resetBindingsActionReference.action.performed += ctx => ResetControlSchemeBinding();
+        }
+        else
+        {
+            Debug.LogWarning($"Reset Bindings Input Action Reference is not set in the inspector. Reset bindings button won't work.");
+        }
+    }
+
+    void OnDisable()
+    {
+        if (_resetBindingsActionReference != null && _resetBindingsActionReference.action != null)
+        {
+            _resetBindingsActionReference.action.performed -= ctx => ResetControlSchemeBinding();
+        }
+    }
+
 
     [ContextMenu("Reset All Bindings (Inspector)")]
     public void InspectorResetAllBindings()
