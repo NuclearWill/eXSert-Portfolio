@@ -24,7 +24,7 @@ public class LogScrollingList : MonoBehaviour
     [SerializeField] internal RectTransform contentRectTransform;
     private Dictionary<string, LogButton> idToButtonMap = new Dictionary<string, LogButton>(); //Dict to hold id of buttons
     //If the button for a log doesn't already exist, this function will make it
-    public LogButton CreateButtonIfNotExists(Logs log, UnityAction selectAction)
+    public LogButton CreateButtonIfNotExists(Logs log, UnityAction selectAction, bool isUnread)
     {
         LogButton logButton = null;
 
@@ -34,7 +34,7 @@ public class LogScrollingList : MonoBehaviour
             if (!idToButtonMap.ContainsKey(log.info.logID))
             {
                 Debug.Log($"Creating button for log {log.info.logID}");
-                logButton = InstantiateLogButton(log, selectAction);
+                logButton = InstantiateLogButton(log, selectAction, isUnread);
             }
             else
             {
@@ -51,7 +51,7 @@ public class LogScrollingList : MonoBehaviour
     }
 
     //Used by the function above to instantiate the button into the content parent in the scroll list
-    private LogButton InstantiateLogButton(Logs log, UnityAction selectAction)
+    private LogButton InstantiateLogButton(Logs log, UnityAction selectAction, bool isUnread)
     {
         LogButton logButton = Instantiate(
             logEntryButtonPrefab,
@@ -65,11 +65,21 @@ public class LogScrollingList : MonoBehaviour
         {
             selectAction();
             UpdateScrolling(buttonRectTranform);
-        });
+        }, isUnread);
 
         idToButtonMap[log.info.logID] = logButton;
 
         return logButton;
+    }
+
+    public void ClearLogButtons()
+    {
+        foreach (var kvp in idToButtonMap)
+        {
+            if (kvp.Value != null)
+                Destroy(kvp.Value.gameObject);
+        }
+        idToButtonMap.Clear();
     }
 
     //So whenever you scroll down the menu will dynamically shift the scroll list

@@ -17,4 +17,5 @@ MonoBehaviour:
   locationFound: id
   logDescription: help
   logImage: {fileID: 0}
-  isFound: 1
+  isFound: 0
+  isRead: 0

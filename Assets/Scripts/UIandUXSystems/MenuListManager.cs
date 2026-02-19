@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using UnityEditor.Rendering;
 
 public class MenuListManager : MonoBehaviour
 {
@@ -93,7 +94,9 @@ public class MenuListManager : MonoBehaviour
         {
             menusToManage.Insert(0, menuToAdd);
             menuToAdd.SetActive(true);
-            SetAsLastSibling(menusToManage[0]);
+
+            if(menuToAdd.tag != "LogUI" && menuToAdd.tag != "DiaryUI")
+                SetAsLastSibling(menuToAdd);
             
             // Select the first selectable in the new menu
             Selectable firstSelectable = menuToAdd.GetComponent<Selectable>();

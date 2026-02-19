@@ -10,6 +10,7 @@ public class PauseManager : Singletons.Singleton<PauseManager>
     [SerializeField] private GameObject pauseMenuHolder;
     [SerializeField] private GameObject navigationMenuHolder;
     [SerializeField] private GameObject settingsMenuContainer;
+    [SerializeField] private GameObject unreadEntriesNotif;
     [SerializeField, Tooltip("Root canvas or parent that contains the in-game HUD (hide when menus are open).")]
     private GameObject playerHUDRoot;
     [SerializeField, Tooltip("Optional fallback name used to rebind the HUD root after scene reloads. Leave blank to capture from the initial reference.")]
@@ -76,7 +77,7 @@ public class PauseManager : Singletons.Singleton<PauseManager>
             Debug.LogWarning($"Back Input Action Reference is not set in the inspector. UI/Back won't work properly");
         else
             _backActionReference.action.performed += OnBackButton;
-
+            
         SceneManager.sceneLoaded += HandleSceneLoaded;
     }
 
@@ -119,6 +120,11 @@ public class PauseManager : Singletons.Singleton<PauseManager>
             return;
         }
         
+        if(LogManager.Instance.unreadLogs.Count > 0 || DiaryManager.Instance.unreadDiaries.Count > 0)
+            unreadEntriesNotif.SetActive(true);
+        else
+            unreadEntriesNotif.SetActive(false);
+
         if (currentActiveMenu == ActiveMenu.None)
         {
             // Open pause menu

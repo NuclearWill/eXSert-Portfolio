@@ -21,6 +21,8 @@ public class LogManager : Singleton<LogManager>
     [SerializeField] private GameObject logUi = null;
     [SerializeField] private GameObject playerHud = null;
 
+    internal List<NavigationLogSO> unreadLogs = new List<NavigationLogSO>();
+
     private Dictionary<string, Logs> logMap;
 
     // Button function placeholder
@@ -37,7 +39,7 @@ public class LogManager : Singleton<LogManager>
 
     protected override void Awake()
     {
-
+        Debug.Log(unreadLogs.Count);
         logMap = CreateLogMap();
 
         base.Awake();
