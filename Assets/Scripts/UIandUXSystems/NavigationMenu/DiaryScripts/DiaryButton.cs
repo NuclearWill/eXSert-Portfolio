@@ -16,6 +16,7 @@ public class DiaryButton : MonoBehaviour, ISelectHandler
     private UnityAction onSelectAction;
     public Button button { get; private set; }
     private MenuEventSystemHandler diaryUI;
+    [SerializeField] private Image unreadIndicator;
 
 
     private void Awake()
@@ -43,7 +44,7 @@ public class DiaryButton : MonoBehaviour, ISelectHandler
     }
 
     //Components get assigned moment of initlization
-    public void InitializeButton(string logName, UnityAction selectAction)
+    public void InitializeButton(string logName, UnityAction selectAction, bool isRead)
     {
         // Ensure button is assigned (in case InitializeButton is called before Awake)
         if (this.button == null)
@@ -57,6 +58,11 @@ public class DiaryButton : MonoBehaviour, ISelectHandler
         {
             this.buttonText.text = logName;
         }
+
+        if(!isRead && unreadIndicator != null)
+            unreadIndicator.gameObject.SetActive(true);
+        else if (unreadIndicator != null)
+            unreadIndicator.gameObject.SetActive(false);
         
         this.onSelectAction = selectAction;
         
