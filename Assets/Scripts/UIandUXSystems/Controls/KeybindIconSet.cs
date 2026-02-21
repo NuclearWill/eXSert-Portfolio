@@ -119,6 +119,19 @@ public class KeybindIconSet : ScriptableObject
         InputAction runtimeAction = ResolveRuntimeAction(assetAction);
         if (runtimeAction == null)
         {
+            Debug.Log($"[KeybindIconSet] Could not resolve runtime action for {assetAction?.name}");
+            if (InputReader.PlayerInput != null && InputReader.PlayerInput.actions != null)
+            {
+                Debug.Log("[KeybindIconSet] Available action maps:");
+                foreach (var map in InputReader.PlayerInput.actions.actionMaps)
+                {
+                    Debug.Log($"  Map: {map.name}");
+                    foreach (var act in map.actions)
+                    {
+                        Debug.Log($"    Action: {act.name}");
+                    }
+                }
+            }
             return false;
         }
         var action = runtimeAction;
@@ -740,14 +753,14 @@ public enum KeybindAction
     GP_Interact = 8,
     GP_Jump = 9,
 
-    UI_Navigate = 10,
+    UI_Navigate = 11,
     UI_Swap = 18,
     UI_RestoreDefault = 19,
-    UI_Confirm = 14,
-    UI_Cancel = 15,
+    UI_Confirm = 15,
+    UI_Cancel = 16,
 
     // Crane actions moved to the bottom for inspector readability.
-    CraneExit = 11,
-    CraneConfirm = 12,
-    CraneMove = 13
+    CraneExit = 12,
+    CraneConfirm = 13,
+    CraneMove = 14
 }

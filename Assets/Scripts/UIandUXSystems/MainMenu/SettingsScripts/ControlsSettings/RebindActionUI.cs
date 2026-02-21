@@ -53,10 +53,20 @@ namespace UnityEngine.InputSystem.Samples.RebindUI
             if (m_Action == null || m_Action.action == null)
                 return null;
             var assetAction = m_Action.action;
-            // Try to resolve from PlayerInput singleton
+            // Always resolve Pause from PlayerInput.actions for runtime rebinding
             var playerInput = InputReader.PlayerInput;
             if (playerInput != null && playerInput.actions != null)
             {
+                if (assetAction.name == "Pause")
+                {
+                    // Always use runtime Pause action from PlayerInput.actions
+                    foreach (var map in playerInput.actions.actionMaps)
+                    {
+                        var runtimePause = map.FindAction("Pause");
+                        if (runtimePause != null)
+                            return runtimePause;
+                    }
+                }
                 var mapName = assetAction.actionMap != null ? assetAction.actionMap.name : string.Empty;
                 if (!string.IsNullOrEmpty(mapName))
                 {
@@ -396,8 +406,16 @@ namespace UnityEngine.InputSystem.Samples.RebindUI
                             ClearDuplicateBinding(action, bindingIndex);
                         }
 
+
                         // Update display to show new binding
                         UpdateBindingDisplay();
+
+                        // Save rebinds immediately after a successful rebind
+                        var rebindSaveLoad = UnityEngine.Object.FindFirstObjectByType<RebindSaveLoad>();
+                        if (rebindSaveLoad != null)
+                        {
+                            rebindSaveLoad.SaveRebindsManually();
+                        }
 
                         // Re-enable action and action maps
                         action.Enable();

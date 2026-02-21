@@ -126,7 +126,7 @@ public class InputReader : Singleton<InputReader>
     private InputAction moveAction, jumpAction, lookAction, changeStanceAction, guardAction,
                         lightAttackAction, heavyAttackAction, dashAction, navigationMenuAction,
                         interactAction, escapePuzzleAction, lockOnAction, leftTargetAction,
-                        rightTargetAction, loadingLookAction, loadingZoomAction;
+                        rightTargetAction, loadingLookAction, loadingZoomAction, pauseAction;
 
     private bool callbacksRegistered = false;
     [SerializeField, Range(0f, 0.5f)] private float lockOnDashSuppressionWindow = 0.18f;
@@ -168,6 +168,7 @@ public class InputReader : Singleton<InputReader>
         public const string RightTarget = "RightTarget";
         public const string LoadingLook = "LoadingLook";
         public const string LoadingZoom = "LoadingZoom";
+        public const string Pause = "Pause";
     }
 
     #region Action Accessors
@@ -226,6 +227,12 @@ public class InputReader : Singleton<InputReader>
         Instance != null
         && Instance.navigationMenuAction != null
         && Instance.navigationMenuAction.triggered;
+
+    public static bool PauseMenuTriggered =>
+        Instance != null
+        && Instance.pauseAction != null
+        && Instance.pauseAction.triggered;
+
     #endregion
 
     #region Unity Lifecycle
@@ -457,6 +464,7 @@ public class InputReader : Singleton<InputReader>
             navigationMenuAction = GetAction(ActionNames.NavigationMenu);
             loadingLookAction = GetAction(ActionNames.LoadingLook);
             loadingZoomAction = GetAction(ActionNames.LoadingZoom);
+            pauseAction = GetAction(ActionNames.Pause);
 
             RegisterActionCallbacks();
         }
@@ -608,7 +616,7 @@ public class InputReader : Singleton<InputReader>
             moveAction, jumpAction, lookAction, changeStanceAction, guardAction,
             lightAttackAction, heavyAttackAction, dashAction, navigationMenuAction,
             interactAction, escapePuzzleAction, lockOnAction, leftTargetAction,
-            rightTargetAction, loadingLookAction, loadingZoomAction
+            rightTargetAction, loadingLookAction, loadingZoomAction, pauseAction
         };
 
         foreach (var a in actions)

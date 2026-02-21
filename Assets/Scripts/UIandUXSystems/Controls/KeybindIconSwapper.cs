@@ -92,7 +92,7 @@ public class KeybindIconSwapper : MonoBehaviour
         StopAllCoroutines();
     }
 
-    private IEnumerator RefreshCoroutine()
+    public IEnumerator RefreshCoroutine()
     {
         while (deviceMode == DeviceMode.Auto)
         {
@@ -153,7 +153,7 @@ public class KeybindIconSwapper : MonoBehaviour
         return string.Empty;
     }
 
-    private void RefreshIcon()
+    public void RefreshIcon()
     {
         if (sharedIconSet == null || targetImage == null)
             return;
