@@ -612,7 +612,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c90228feae360cc4895f08ce8185e090, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KeybindIconSwapper
-  iconSet: {fileID: 11400000, guid: 77f0940b5e0ed114c8391847927da1c9, type: 2}
   targetImage: {fileID: 7295369775447299713}
   action: 0
   deviceMode: 0
@@ -820,7 +819,7 @@ GameObject:
   - component: {fileID: 5011529244364066715}
   - component: {fileID: 9000622957064763091}
   m_Layer: 5
-  m_Name: Notice
+  m_Name: NoticeContents
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -833,7 +832,7 @@ RectTransform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 2030360712747901842}
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -846,7 +845,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 1, y: 1}
   m_AnchorMax: {x: 1, y: 1}
-  m_AnchoredPosition: {x: -266.99988, y: -540}
+  m_AnchoredPosition: {x: -267, y: -540.00006}
   m_SizeDelta: {x: 399.2625, y: 134.3504}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &5011529244364066715
@@ -1618,7 +1617,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c90228feae360cc4895f08ce8185e090, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KeybindIconSwapper
-  iconSet: {fileID: 11400000, guid: 77f0940b5e0ed114c8391847927da1c9, type: 2}
   targetImage: {fileID: 3199575309603984320}
   action: 3
   deviceMode: 0
@@ -2814,7 +2812,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c90228feae360cc4895f08ce8185e090, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KeybindIconSwapper
-  iconSet: {fileID: 11400000, guid: 77f0940b5e0ed114c8391847927da1c9, type: 2}
   targetImage: {fileID: 627297372629833339}
   action: 1
   deviceMode: 0
@@ -4055,7 +4052,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c90228feae360cc4895f08ce8185e090, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::KeybindIconSwapper
-  iconSet: {fileID: 11400000, guid: 77f0940b5e0ed114c8391847927da1c9, type: 2}
   targetImage: {fileID: 5237398617950398826}
   action: 5
   deviceMode: 0
@@ -5695,6 +5691,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 7766454795055846290}
     m_Modifications:
+    - target: {fileID: 8420335558540013024, guid: 32fc3a3f3d66f634bb367ea20fd57cb4, type: 3}
+      propertyPath: m_Name
+      value: ComboCircle_A3
+      objectReference: {fileID: 0}
     - target: {fileID: 4994237317898921455, guid: b5ecfb8a205f9ca408b4eb23f5833967, type: 3}
       propertyPath: m_Name
       value: ComboCircle_A3
@@ -5786,10 +5786,6 @@ PrefabInstance:
     - target: {fileID: 8249961978267516690, guid: b5ecfb8a205f9ca408b4eb23f5833967, type: 3}
       propertyPath: m_Name
       value: Rocket
-      objectReference: {fileID: 0}
-    - target: {fileID: 8420335558540013024, guid: 32fc3a3f3d66f634bb367ea20fd57cb4, type: 3}
-      propertyPath: m_Name
-      value: ComboCircle_A3
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

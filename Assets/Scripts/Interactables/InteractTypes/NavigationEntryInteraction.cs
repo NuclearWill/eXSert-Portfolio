@@ -4,14 +4,16 @@
     Place this script where you want a diary entry to be interacted with and collected into the player's inventory.
 */
 
+using UnityEngine.UI;
 using UnityEngine;
 
-public class NavigationEntryInteraction : InteractionManager
+public class NavigationEntryInteraction : CollectableInteraction
 {
 
     [Space(10)]
     [Header("Navigation Entry Data")]
     [SerializeField] private ScriptableObject entryData;
+
     
     [Space(10)]
     [Header("Entry Type")]
@@ -90,24 +92,23 @@ public class NavigationEntryInteraction : InteractionManager
         }
     }
 
-    protected override void Interact()
+    protected override void ExecuteInteraction()
     {
         if (string.IsNullOrEmpty(this.interactId))
         {
             Debug.LogError($"{gameObject.name}: interactId is not set! Cannot process interaction.");
             return;
         }
+
         if(isLog)
         {
             var logSO = entryData as NavigationLogSO;
             
             logSO.isFound = true;
-            
-            if(LogManager.Instance.foundLogs.Count == 0 && NavigationMenu.Instance.navigationMenuGO != null)
-                StartCoroutine(LogManager.Instance.ShowLogScreenIfFirstLog());
 
             EventsManager.Instance.logEvents.FoundLog(this.interactId);
-            DeactivateInteractable(this);
+
+            LogManager.Instance.unreadLogs.Add(logSO);
         }
         else if(isDiary)
         {
@@ -116,7 +117,8 @@ public class NavigationEntryInteraction : InteractionManager
             diarySO.isFound = true;
 
             EventsManager.Instance.diaryEvents.FoundDiary(this.interactId);
-            DeactivateInteractable(this);
+            
+            DiaryManager.Instance.unreadDiaries.Add(diarySO);
         }
     }
 
