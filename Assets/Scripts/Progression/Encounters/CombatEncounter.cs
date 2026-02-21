@@ -6,28 +6,21 @@ using UnityEngine.SceneManagement;
 
 namespace Progression.Encounters
 {
+    [HelpURL("https://docs.google.com/document/d/18pi24ZJ65GG307F6SvKpSoHPs0izxSb6yZ6cfjvYqMQ/edit?pli=1&tab=t.0#bookmark=id.i423tfr2oxw")]
     public class CombatEncounter : BasicEncounter
     {
         #region Inspector Setup
         [Header("Combat Encounter Settings")]
 
-        [SerializeField] private bool tempIsCompleted;
-
-        [Header("Timing")]
-        [SerializeField, Tooltip("Seconds to wait before advancing to the next wave.")]
-        private float nextWaveDelaySeconds = 0.15f;
-
         [Header("Progression")]
-        [SerializeField] private bool autoFindByTag = false;
-        [SerializeField] private string enemyTag = "Enemy";
-
-
         [SerializeField] private bool dropObjectOnClear = false;
         [SerializeField] private GameObject objectToDrop;
-        private bool dropAtLastEnemyPosition = true;
+        private const bool dropAtLastEnemyPosition = true;
         #endregion
 
         private Vector3 lastEnemyPosition;
+
+        private bool tempIsCompleted;
 
         public override bool isCompleted { get => tempIsCompleted; }
 
