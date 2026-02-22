@@ -32,6 +32,8 @@ namespace EnemyBehavior.Boss
         private AudioClip[] panelHitSounds;
         [SerializeField, Tooltip("Sound clips for hits after panel breaks (vulnerable)")]
         private AudioClip[] vulnerableHitSounds;
+        [SerializeField, Tooltip("Sound clips for when the panel breaks and falls off")]
+        private AudioClip[] panelBreakSounds;
 
         /// <summary>
         /// Current health of this panel. Synced from BossRoombaBrain.SidePanels.
@@ -69,7 +71,7 @@ namespace EnemyBehavior.Boss
             // Ensure the zone is tagged as Enemy so player weapons detect it
             if (!gameObject.CompareTag("Enemy"))
             {
-                Debug.LogWarning($"[BossSidePanelCollider] {gameObject.name} should be tagged 'Enemy' for player weapons to detect it!");
+                EnemyBehaviorDebugLogBools.LogWarning(nameof(BossSidePanelCollider), $"[BossSidePanelCollider] {gameObject.name} should be tagged 'Enemy' for player weapons to detect it!");
             }
         }
 
@@ -80,14 +82,14 @@ namespace EnemyBehavior.Boss
                 bossBrain = GetComponentInParent<BossRoombaBrain>();
                 if (bossBrain == null)
                 {
-                    Debug.LogError($"[BossSidePanelCollider] No BossRoombaBrain found for panel {panelIndex} on {gameObject.name}!");
+                    EnemyBehaviorDebugLogBools.LogError($"[BossSidePanelCollider] No BossRoombaBrain found for panel {panelIndex} on {gameObject.name}!");
                 }
             }
             
             // Warn if not tagged as Enemy
             if (!gameObject.CompareTag("Enemy"))
             {
-                Debug.LogWarning($"[BossSidePanelCollider] {gameObject.name} is not tagged 'Enemy' - player weapons won't detect it!");
+                EnemyBehaviorDebugLogBools.LogWarning(nameof(BossSidePanelCollider), $"[BossSidePanelCollider] {gameObject.name} is not tagged 'Enemy' - player weapons won't detect it!");
             }
         }
 
@@ -120,7 +122,7 @@ namespace EnemyBehavior.Boss
         public void HealHP(float hp)
         {
             // Panels don't heal, but we could add this functionality later
-            Debug.Log($"[BossSidePanelCollider] HealHP called on panel {panelIndex} - panels don't heal.");
+            EnemyBehaviorDebugLogBools.Log(nameof(BossSidePanelCollider), $"[BossSidePanelCollider] HealHP called on panel {panelIndex} - panels don't heal.");
         }
 
         private void PlayHitSound(AudioClip[] clips)
@@ -131,6 +133,14 @@ namespace EnemyBehavior.Boss
             {
                 hitAudioSource.PlayOneShot(clip);
             }
+        }
+
+        /// <summary>
+        /// Plays the panel break sound effect. Called by BossRoombaBrain when the panel is destroyed.
+        /// </summary>
+        public void PlayPanelBreakSound()
+        {
+            PlayHitSound(panelBreakSounds);
         }
 
         /// <summary>

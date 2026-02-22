@@ -352,7 +352,11 @@ public class PlayerMovement : MonoBehaviour
         }
 
         // Assign PlayerInput to InputReader
-        InputReader.AssignPlayerInput(GetComponent<PlayerInput>());
+        var playerInput = GetComponent<PlayerInput>()
+            ?? GetComponentInParent<PlayerInput>()
+            ?? GetComponentInChildren<PlayerInput>(true);
+
+        InputReader.AssignPlayerInput(playerInput);
 
         doubleJumpAvailable = canDoubleJump;
         airborneStartHeight = transform.position.y;
@@ -430,10 +434,10 @@ public class PlayerMovement : MonoBehaviour
 
     private void Update()
     {
-        if (_jumpAction != null && _jumpAction.action != null && _jumpAction.action.triggered)
+        if (InputReader.JumpTriggered)
             OnJump();
 
-        if (_dashAction != null && _dashAction.action != null && _dashAction.action.triggered)
+        if (InputReader.DashTriggered)
             OnDash();
 
         if (pendingJump != PendingJumpType.None && pendingJumpTimer > 0f)
@@ -630,7 +634,10 @@ public class PlayerMovement : MonoBehaviour
                 return;
             }
 
+
             currentMovement.y = jumpForce;
+
+            
             doubleJumpAvailable = canDoubleJump;
             pendingJump = PendingJumpType.None;
             return;
@@ -642,7 +649,7 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
 
-        currentMovement.y += doubleJumpForce;
+        currentMovement.y = MathF.Max(currentMovement.y, doubleJumpForce);
         doubleJumpAvailable = false;
         pendingJump = PendingJumpType.None;
         DoubleJumpPerformed?.Invoke();

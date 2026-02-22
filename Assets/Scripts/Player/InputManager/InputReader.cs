@@ -1,3 +1,4 @@
+  
 /*
  * Written by Brandon Wahl
  * 
@@ -97,14 +98,22 @@ public class InputReader : Singleton<InputReader>
     {
         get
         {
+            if (isApplicationQuitting)
+            {
+                Debug.LogWarning("[InputReader] Attempted to access PlayerInput during application quit. Returning null.");
+                return null;
+            }
+
             // Ensure the singleton instance exists
             if (Instance == null) CreateInstance();
 
             if (_playerInput != null) return _playerInput;
+            else Debug.Log("[InputReader] _playerInput is null in PlayerInput getter.");
 
             // Tries to get PlayerInput from the singleton GameObject
             _playerInput = Instance.GetComponent<PlayerInput>();
             if (_playerInput != null) return _playerInput;
+            else Debug.Log("[InputReader] _playerInput is still null after GetComponent.");
 
             // Creates a PlayerInput component on the singleton GameObject if none exists
             PlayerInput newInput = Instance.gameObject.AddComponent<PlayerInput>();
@@ -230,13 +239,27 @@ public class InputReader : Singleton<InputReader>
     {
         base.Awake(); // Ensure singleton behavior
 
+        // If this component was a duplicate (Singleton destroys the component only), do not continue initialization.
+        if (Instance != this)
+            return;
+
         SceneManager.sceneLoaded += HandleSceneLoaded;
 
+        // Prefer a project asset if available, but do not require Resources/.
+        // If the asset isn't located under a Resources folder, fall back to a runtime-generated wrapper.
         playerControls = Resources.Load<InputActionAsset>("PlayerControls");
         if (playerControls == null)
         {
-            Debug.LogError("player controls still null. Darn");
-            return;
+            runtimeGeneratedControls = new PlayerControls();
+            playerControls = runtimeGeneratedControls.asset;
+
+            if (playerControls == null)
+            {
+                Debug.LogError("[InputReader] Failed to load PlayerControls from Resources and failed to generate runtime controls.");
+                return;
+            }
+
+            Debug.LogWarning("[InputReader] PlayerControls asset not found in Resources. Using runtime-generated controls instead.");
         }
 
         // Try to bind to an existing PlayerInput found in loaded scenes first; if none found,
@@ -253,6 +276,7 @@ public class InputReader : Singleton<InputReader>
             {
                 singletonPlayerInput = gameObject.AddComponent<PlayerInput>();
             }
+            else Debug.Log("[InputReader] singletonPlayerInput already exists.");
 
             if (singletonPlayerInput.actions == null && playerControls != null)
             {
@@ -271,6 +295,26 @@ public class InputReader : Singleton<InputReader>
         EnsureCursorManager(PlayerInput);
     }
 
+      /// <summary>
+    /// Static method to assign a new PlayerInput instance.
+    /// For compatibility with existing code that calls InputReader.AssignPlayerInput().
+    /// </summary>
+    /// <param name="newPlayerInput">The PlayerInput to assign.</param>
+    public static void AssignPlayerInput(PlayerInput newPlayerInput)
+    {
+        if (Instance == null)
+            CreateInstance();
+
+        if (newPlayerInput == null)
+        {
+            Debug.LogWarning("InputReader: Cannot assign null PlayerInput!");
+            return;
+        }
+        else Debug.Log("[InputReader] AssignPlayerInput received a valid PlayerInput.");
+
+        Instance.RebindTo(newPlayerInput, switchToGameplay: true);
+    }
+
     private void OnDestroy()
     {
         SceneManager.sceneLoaded -= HandleSceneLoaded;
@@ -285,8 +329,27 @@ public class InputReader : Singleton<InputReader>
 
     private void HandleSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        // If we already have a PlayerInput, only early-out when it's a real scene/player binding.
+        // When starting from MainMenu, InputReader may create a fallback PlayerInput on itself;
+        // once gameplay scenes load we must rebind to the actual player PlayerInput.
         if (_playerInput != null)
-            return;
+        {
+            // Unity's fake-null for destroyed objects
+            if (_playerInput == null)
+            {
+                _playerInput = null;
+            }
+            else
+            {
+                bool isFallbackOnSingleton = _playerInput.gameObject == gameObject
+                    || _playerInput.gameObject.scene.name == "DontDestroyOnLoad";
+
+                if (!isFallbackOnSingleton)
+                    return;
+            }
+        }
+
+        Debug.Log("[InputReader] Attempting to bind PlayerInput after scene load.");
 
         if (scene.isLoaded && TryBindFromScene(scene))
             return;
@@ -391,6 +454,7 @@ public class InputReader : Singleton<InputReader>
         }
         else
         {
+            Debug.Log("[InputReader] _playerInput is null in LookInput update.");
             activeControlScheme = string.Empty;
         }
     }
@@ -409,25 +473,6 @@ public class InputReader : Singleton<InputReader>
     }
 
     /// <summary>
-    /// Static method to assign a new PlayerInput instance.
-    /// For compatibility with existing code that calls InputReader.AssignPlayerInput().
-    /// </summary>
-    /// <param name="newPlayerInput">The PlayerInput to assign.</param>
-    public static void AssignPlayerInput(PlayerInput newPlayerInput)
-    {
-        if (Instance == null)
-            CreateInstance();
-
-        if (newPlayerInput == null)
-        {
-            Debug.LogError("InputReader: Cannot assign null PlayerInput!");
-            return;
-        }
-
-        Instance.RebindTo(newPlayerInput, switchToGameplay: true);
-    }
-
-    /// <summary>
     /// Rebind this InputReader to a new PlayerInput instance (e.g., after scene restart or player respawn).
     /// Safely swaps action references and ensures the correct action map is active.
     /// </summary>
@@ -440,6 +485,7 @@ public class InputReader : Singleton<InputReader>
             Debug.LogWarning("[InputReader] RebindTo called with null PlayerInput");
             return;
         }
+        else Debug.Log("[InputReader] RebindTo received a valid PlayerInput.");
 
         // Disable any old actions to avoid ghost reads
         SetAllActionsEnabled(false);
@@ -621,7 +667,10 @@ public class InputReader : Singleton<InputReader>
     private InputAction GetAction(string name)
     {
         if (PlayerInput == null || PlayerInput.actions == null)
+        {
+            Debug.Log("[InputReader] PlayerInput or PlayerInput.actions is null in GetAction.");
             return null;
+        }
 
         try
         {

@@ -5,8 +5,9 @@ namespace Progression.Encounters
 {
     public class PuzzleEncounter : BasicEncounter
     {
-        protected override Color DebugColor { get => Color.purple; }
+        protected override Color DebugColor => Color.purple;
 
+        [SerializeField] private string objectiveText = "Complete the puzzle!";
         [Header("Optional Overrides")]
         [SerializeField] private PuzzlePart overridePuzzlePart;
         [SerializeField] private PuzzleInteraction[] overrideInteractPoints;
@@ -19,6 +20,8 @@ namespace Progression.Encounters
         /// Override of isCompleted that checks the completion status of the puzzle part instead.
         /// </summary>
         public override bool isCompleted => part.isCompleted;
+
+        public override string ObjectiveText => objectiveText;
 
         protected override void SetupEncounter()
         {
