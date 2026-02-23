@@ -282,7 +282,7 @@ namespace EnemyBehavior.Boss.Cleanser
     public class CleanserAttackDescriptor
     {
         [Tooltip("Unique identifier for this attack.")]
-        public string Id;
+        public string ID;
         
         [Tooltip("Category determines guard/parry rules.")]
         public AttackCategory Category;

@@ -346,105 +346,131 @@ namespace EnemyBehavior.Boss.Cleanser
 
         private void InitializeAttackDescriptors()
         {
-            // Initialize with defaults - all use single animation triggers now
-            LungeAttack = new CleanserAttackDescriptor
+            // Only initialize with defaults if not configured in inspector (ID is empty)
+            // This allows designer overrides via inspector while providing sensible defaults
+            
+            if (string.IsNullOrEmpty(LungeAttack?.ID))
             {
-                Id = "Lunge",
-                Category = AttackCategory.Halberd,
-                BaseDamage = 20f,
-                Cooldown = 2f,
-                RangeMin = 3f,
-                RangeMax = 8f,
-                AnimationTrigger = "Attack_Lunge",
-                HasWindupDamageReduction = true,
-                WindupDamageReduction = 0.5f,
-                IncludesMovement = true,
-                MovementDistance = 5f
-            };
+                LungeAttack = new CleanserAttackDescriptor
+                {
+                    ID = "Lunge",
+                    Category = AttackCategory.Halberd,
+                    BaseDamage = 20f,
+                    Cooldown = 2f,
+                    RangeMin = 3f,
+                    RangeMax = 8f,
+                    AnimationTrigger = "Attack_Lunge",
+                    HasWindupDamageReduction = true,
+                    WindupDamageReduction = 0.5f,
+                    IncludesMovement = true,
+                    MovementDistance = 5f
+                };
+            }
 
-            OverheadCleaveAttack = new CleanserAttackDescriptor
+            if (string.IsNullOrEmpty(OverheadCleaveAttack?.ID))
             {
-                Id = "OverheadCleave",
-                Category = AttackCategory.Halberd,
-                BaseDamage = 25f,
-                Cooldown = 2.5f,
-                RangeMin = 0f,
-                RangeMax = 4f,
-                AnimationTrigger = "Attack_OverheadCleave"
-            };
+                OverheadCleaveAttack = new CleanserAttackDescriptor
+                {
+                    ID = "OverheadCleave",
+                    Category = AttackCategory.Halberd,
+                    BaseDamage = 25f,
+                    Cooldown = 2.5f,
+                    RangeMin = 0f,
+                    RangeMax = 4f,
+                    AnimationTrigger = "Attack_OverheadCleave"
+                };
+            }
 
-            SlashIntoSlapAttack = new CleanserAttackDescriptor
+            if (string.IsNullOrEmpty(SlashIntoSlapAttack?.ID))
             {
-                Id = "SlashIntoSlap",
-                Category = AttackCategory.Mixed,
-                BaseDamage = 15f,
-                Cooldown = 3f,
-                RangeMin = 0f,
-                RangeMax = 5f,
-                AnimationTrigger = "Attack_SlashSlap",
-                IsMultiPart = true,
-                PartCategories = new[] { AttackCategory.Halberd, AttackCategory.Wing },
-                IncludesMovement = true,
-                MovementDistance = 3f
-            };
+                SlashIntoSlapAttack = new CleanserAttackDescriptor
+                {
+                    ID = "SlashIntoSlap",
+                    Category = AttackCategory.Mixed,
+                    BaseDamage = 15f,
+                    Cooldown = 3f,
+                    RangeMin = 0f,
+                    RangeMax = 5f,
+                    AnimationTrigger = "Attack_SlashSlap",
+                    IsMultiPart = true,
+                    PartCategories = new[] { AttackCategory.Halberd, AttackCategory.Wing },
+                    IncludesMovement = true,
+                    MovementDistance = 3f
+                };
+            }
 
-            RakeIntoSpinSlashAttack = new CleanserAttackDescriptor
+            if (string.IsNullOrEmpty(RakeIntoSpinSlashAttack?.ID))
             {
-                Id = "RakeIntoSpinSlash",
-                Category = AttackCategory.Mixed,
-                BaseDamage = 18f,
-                Cooldown = 3f,
-                RangeMin = 0f,
-                RangeMax = 4f,
-                AnimationTrigger = "Attack_RakeSpin",
-                IsMultiPart = true,
-                PartCategories = new[] { AttackCategory.Wing, AttackCategory.Halberd }
-            };
+                RakeIntoSpinSlashAttack = new CleanserAttackDescriptor
+                {
+                    ID = "RakeIntoSpinSlash",
+                    Category = AttackCategory.Mixed,
+                    BaseDamage = 18f,
+                    Cooldown = 3f,
+                    RangeMin = 0f,
+                    RangeMax = 4f,
+                    AnimationTrigger = "Attack_RakeSpin",
+                    IsMultiPart = true,
+                    PartCategories = new[] { AttackCategory.Wing, AttackCategory.Halberd }
+                };
+            }
 
-            SpinSlashOnlyAttack = new CleanserAttackDescriptor
+            if (string.IsNullOrEmpty(SpinSlashOnlyAttack?.ID))
             {
-                Id = "SpinSlashOnly",
-                Category = AttackCategory.Halberd,
-                BaseDamage = 20f,
-                Cooldown = 2f,
-                RangeMin = 0f,
-                RangeMax = 4f,
-                AnimationTrigger = "Attack_SpinSlash"
-            };
+                SpinSlashOnlyAttack = new CleanserAttackDescriptor
+                {
+                    ID = "SpinSlashOnly",
+                    Category = AttackCategory.Halberd,
+                    BaseDamage = 20f,
+                    Cooldown = 2f,
+                    RangeMin = 0f,
+                    RangeMax = 4f,
+                    AnimationTrigger = "Attack_SpinSlash"
+                };
+            }
 
-            LegSweepAttack = new CleanserAttackDescriptor
+            if (string.IsNullOrEmpty(LegSweepAttack?.ID))
             {
-                Id = "LegSweep",
-                Category = AttackCategory.Halberd,
-                BaseDamage = 15f,
-                Cooldown = 4f,
-                RangeMin = 0f,
-                RangeMax = 5f,
-                AnimationTrigger = "Attack_LegSweep",
-                CanStunPlayer = true
-            };
+                LegSweepAttack = new CleanserAttackDescriptor
+                {
+                    ID = "LegSweep",
+                    Category = AttackCategory.Halberd,
+                    BaseDamage = 15f,
+                    Cooldown = 4f,
+                    RangeMin = 0f,
+                    RangeMax = 5f,
+                    AnimationTrigger = "Attack_LegSweep",
+                    CanStunPlayer = true
+                };
+            }
 
-            HighDiveAttack = new CleanserAttackDescriptor
+            if (string.IsNullOrEmpty(HighDiveAttack?.ID))
             {
-                Id = "HighDive",
-                Category = AttackCategory.Halberd,
-                BaseDamage = 40f,
-                Cooldown = 8f,
-                RangeMin = 0f,
-                RangeMax = 10f,
-                AnimationTrigger = "Attack_HighDive"
-            };
+                HighDiveAttack = new CleanserAttackDescriptor
+                {
+                    ID = "HighDive",
+                    Category = AttackCategory.Halberd,
+                    BaseDamage = 40f,
+                    Cooldown = 8f,
+                    RangeMin = 0f,
+                    RangeMax = 10f,
+                    AnimationTrigger = "Attack_HighDive"
+                };
+            }
 
-            AnimeDashSlashAttack = new CleanserAttackDescriptor
+            if (string.IsNullOrEmpty(AnimeDashSlashAttack?.ID))
             {
-                Id = "AnimeDashSlash",
-                Category = AttackCategory.Halberd,
-                BaseDamage = 12f,
-                Cooldown = 10f,
-                RangeMin = 0f,
-                RangeMax = 15f,
-                AnimationTrigger = "Attack_AnimeDash"
-            };
+                AnimeDashSlashAttack = new CleanserAttackDescriptor
+                {
+                    ID = "AnimeDashSlash",
+                    Category = AttackCategory.Halberd,
+                    BaseDamage = 12f,
+                    Cooldown = 10f,
+                    RangeMin = 0f,
+                    RangeMax = 15f,
+                    AnimationTrigger = "Attack_AnimeDash"
+                };
+            }
         }
 
         #region Main Combat Loop
@@ -682,7 +708,7 @@ namespace EnemyBehavior.Boss.Cleanser
             if (elapsed >= timeout)
             {
 #if UNITY_EDITOR
-                EnemyBehaviorDebugLogBools.LogWarning(nameof(CleanserBrain), $"[Cleanser] Attack '{attack.Id}' timed out waiting for animation event. Using fallback.");
+                EnemyBehaviorDebugLogBools.LogWarning(nameof(CleanserBrain), $"[Cleanser] Attack '{attack.ID}' timed out waiting for animation event. Using fallback.");
 #endif
                 CheckMeleeHit(attack.BaseDamage, attack.Category);
             }
