@@ -58,6 +58,8 @@ public class CranePart
     [ShowIfZ]
     [Tooltip("Max Z position")]
     public float maxZ = 5f;
+
+    public bool useWorldPosition = false; // Option to move using world position instead of local position
 }
 
 // These will be used to show/hide fields in the inspector based on which axes are enabled
@@ -334,6 +336,20 @@ public class CranePuzzle : PuzzlePart
 
         isCompleted = true;
 
+        // Restore crane part positions
+        foreach (CranePart part in craneParts)
+        {
+            if (part == null || part.partObject == null) continue;
+            if (cranePartStartLocalPositions.ContainsKey(part))
+            {
+                Vector3 startPos = cranePartStartLocalPositions[part];
+                if (part.useWorldPosition)
+                    part.partObject.transform.position = startPos;
+                else
+                    part.partObject.transform.localPosition = startPos;
+            }
+        }
+
         foreach (GameObject img in craneUI)
         {
             img.SetActive(false);
@@ -414,6 +430,15 @@ public class CranePuzzle : PuzzlePart
     }
 
     #endregion
+
+    private void CacheCranePositions()
+    {
+        foreach (CranePart part in craneParts)
+        {
+            if (part == null || part.partObject == null) continue;
+            craneParts[part] = part.partObject.transform.localPosition;
+        }
+    }
     // Read CranePuzzle move action when available (prefer runtime action from PlayerInput)
     private void ReadMoveAction()
     {
@@ -474,7 +499,7 @@ public class CranePuzzle : PuzzlePart
                 CranePart part = craneParts[i];
                 if (part == null || part.partObject == null) continue;
 
-                Vector3 localPos = part.partObject.transform.localPosition;
+                Vector3 basePos = part.useWorldPosition ? part.partObject.transform.position : part.partObject.transform.localPosition;
                 Vector3 delta = Vector3.zero;
 
                 if (part.moveX)
@@ -491,7 +516,7 @@ public class CranePuzzle : PuzzlePart
                 }
                 if (delta != Vector3.zero)
                 {
-                    Vector3 next = localPos + delta * craneMoveSpeed * Time.deltaTime;
+                    Vector3 next = basePos + delta * craneMoveSpeed * Time.deltaTime;
 
                     if (part.moveX)
                     {
@@ -506,7 +531,10 @@ public class CranePuzzle : PuzzlePart
                         next.z = Mathf.Clamp(next.z, part.minZ, part.maxZ);
                     }
 
-                    part.partObject.transform.localPosition = next;
+                    if (part.useWorldPosition)
+                        part.partObject.transform.position = next;
+                    else
+                        part.partObject.transform.localPosition = next;
                 }
             }
         }
@@ -646,7 +674,10 @@ public class CranePuzzle : PuzzlePart
         {
             if (part != null && part.partObject != null)
             {
-                cranePartStartLocalPositions[part] = part.partObject.transform.localPosition;
+                if (part.useWorldPosition)
+                    cranePartStartLocalPositions[part] = part.partObject.transform.position;
+                else
+                    cranePartStartLocalPositions[part] = part.partObject.transform.localPosition;
             }
         }
     }

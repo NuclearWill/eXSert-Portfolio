@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 [System.Serializable]
-public class HangarCranePart : CranePart
+public class HangarCranePart
 {
     public Transform partTransform;
     public float swayAmount;
@@ -13,6 +13,8 @@ public class HangarCranePart : CranePart
 
 public class HangarCrane : CranePuzzle{
     public List<HangarCranePart> hangarCraneParts = new List<HangarCranePart>();
+    // Store original local positions for HangarCranePart
+    private Dictionary<HangarCranePart, Vector3> cranePartStartLocalPositions = new Dictionary<HangarCranePart, Vector3>();
 
     private void LateUpdate()
     {
@@ -74,8 +76,8 @@ public class HangarCrane : CranePuzzle{
             float swayOffset = Mathf.Sin(swayTime * part.swaySpeed) * part.swayAmount;
             Vector3 visualOffset = swayDirection * swayOffset;
             // Reset to original position plus visual sway
-            if (cranePartStartLocalPositions.ContainsKey(part))
-                part.partTransform.localPosition = cranePartStartLocalPositions[part] + visualOffset;
+                if (cranePartStartLocalPositions.ContainsKey(part))
+                    part.partTransform.localPosition = cranePartStartLocalPositions[part] + visualOffset;
         }
     }
 
