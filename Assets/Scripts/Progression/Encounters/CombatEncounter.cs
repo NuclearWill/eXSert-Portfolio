@@ -20,10 +20,6 @@ namespace Progression.Encounters
 
         private Vector3 lastEnemyPosition;
 
-        private bool tempIsCompleted;
-
-        public override bool isCompleted { get => tempIsCompleted; }
-
         public override string ObjectiveText 
         { 
             get => wavesQueue.Count > 0 ? wavesQueue.Peek().WaveObjectiveText : "Encounter Completed!";
@@ -44,11 +40,13 @@ namespace Progression.Encounters
         private bool encounterStarted = false;
         private Coroutine waveAdvanceRoutine;
 
-        private void OnUpdateLastEnemyPosition(Vector3 position) => lastEnemyPosition = position;
 
+        #region Basic Encounter Overrides
         protected override void SetupEncounter()
         {
             base.SetupEncounter();
+
+            OnEncounterCompleted += DropItem;
 
             allWaves.Clear(); // Clear any existing waves in case of editor changes or scene reload
 
@@ -87,6 +85,17 @@ namespace Progression.Encounters
         }
 
         protected override void PlayerEnteredZone() => BeginEncounter();
+
+        protected override void CleanupEncounter()
+        {
+            base.CleanupEncounter();
+
+            OnEncounterCompleted -= DropItem;
+        }
+        #endregion
+
+        private void OnUpdateLastEnemyPosition(Vector3 position) => lastEnemyPosition = position;
+
         private void BeginEncounter()
         {
             if (encounterStarted)
@@ -99,13 +108,6 @@ namespace Progression.Encounters
 
             encounterStarted = true;
             SpawnNextWave();
-        }
-
-        private void CompleteEncounter()
-        {
-            if (debugMessagesEnabled) Debug.Log($"[CombatEncounter] Encounter completed: {name}");
-
-            DropItem();
         }
 
         private void DropItem()
@@ -136,7 +138,7 @@ namespace Progression.Encounters
 
             // Check if there are more waves to spawn
             if (wavesQueue.Count != 0) SpawnNextWave(3f);
-            else CompleteEncounter();
+            else HandleEncounterCompleted();
         }
 
         private void CleanupWave(Wave wave)
