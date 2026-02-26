@@ -28,21 +28,21 @@ public class PauseManager : Singletons.Singleton<PauseManager>
     [Header("Input Actions")]
     [SerializeField] private InputActionReference _navigationMenuActionReference;
     [SerializeField] private InputActionReference _swapMenuActionReference;
-    [SerializeField] internal InputActionReference _pauseActionReference;
+    [SerializeField] private InputActionReference _pauseActionReference;
 
 
     private MenuListManager menuListManager;
 
     public static bool IsPaused { get; private set; } = false;
     
-    internal enum ActiveMenu
+    private enum ActiveMenu
     {
         None,
         PauseMenu,
         NavigationMenu
     }
     
-    internal ActiveMenu currentActiveMenu = ActiveMenu.None;
+    private ActiveMenu currentActiveMenu = ActiveMenu.None;
     private bool settingsMenuOpen = false;
 
     protected override void Awake()
@@ -191,6 +191,8 @@ public class PauseManager : Singletons.Singleton<PauseManager>
         menuListManager.SelectFirstSelectOnBack(menuListManager.menusToManage[0]);
     }
 
+    
+
     /// <summary>
     /// Closes the settings menu and returns to the pause menu.
     /// Call this from your Settings "Back" button as well.
@@ -258,7 +260,7 @@ public class PauseManager : Singletons.Singleton<PauseManager>
         }
     }
 
-    internal void ShowNavigationMenu()
+    private void ShowNavigationMenu()
     {
         Time.timeScale = 0f;
         IsPaused = true;
