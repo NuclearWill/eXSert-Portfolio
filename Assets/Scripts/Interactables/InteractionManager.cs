@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System;
+using UnityEngine.Events;
 using System.Collections;
 
 [RequireComponent(typeof(BoxCollider))]
@@ -37,8 +38,6 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
         this.GetComponent<BoxCollider>().isTrigger = true;
 
         interactId = _interactId.Trim().ToLowerInvariant();
-
-        
 
         var ui = ResolveInteractionUI();
         if (ui == null)
@@ -93,8 +92,6 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
     }
 
     protected abstract void Interact();
-
-    
 
     public void SwapBasedOnInputMethod()
     {
