@@ -2448,6 +2448,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 144235146}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer (2)
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: 3.8690948
@@ -2487,10 +2491,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer (2)
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -2666,7 +2666,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 5.04
+      value: 5.07
       objectReference: {fileID: 0}
     - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
       propertyPath: m_LocalPosition.z
@@ -3537,6 +3537,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 144235146}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer (1)
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0.28
@@ -3576,10 +3580,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer (1)
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -4182,6 +4182,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 144235146}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: 5.94
@@ -4221,10 +4225,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -4952,6 +4952,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 339521293}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: -4.51
@@ -4991,10 +4995,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -7385,6 +7385,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1051257874}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: 8.011489
@@ -7424,10 +7428,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -12334,6 +12334,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1601308161}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer (1)
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: -0.63418007
@@ -12373,10 +12377,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer (1)
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -14404,6 +14404,72 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!1001 &799654330
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 916281080}
+    m_Modifications:
+    - target: {fileID: 185607845629825721, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 824ef621b3b0fcc4ba64f7b59304192b, type: 2}
+    - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -7.92
+      objectReference: {fileID: 0}
+    - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 5.07
+      objectReference: {fileID: 0}
+    - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 18.92
+      objectReference: {fileID: 0}
+    - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 0.70212585
+      objectReference: {fileID: 0}
+    - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 2.8421713e-14
+      objectReference: {fileID: 0}
+    - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0.71205294
+      objectReference: {fileID: 0}
+    - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -5.6843426e-14
+      objectReference: {fileID: 0}
+    - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 90.804
+      objectReference: {fileID: 0}
+    - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1842980680630612844, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
+      propertyPath: m_Name
+      value: Container_low (104)
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
+--- !u!4 &799654331 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
+  m_PrefabInstance: {fileID: 799654330}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &858585996
 GameObject:
   m_ObjectHideFlags: 0
@@ -15599,6 +15665,7 @@ Transform:
   - {fileID: 1949202110}
   - {fileID: 1397158193}
   - {fileID: 226140658}
+  - {fileID: 799654331}
   - {fileID: 955389313}
   - {fileID: 2132311118}
   - {fileID: 788551930}
@@ -19543,7 +19610,7 @@ PrefabInstance:
     - target: {fileID: 185607845629825721, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
-      objectReference: {fileID: 2100000, guid: 824ef621b3b0fcc4ba64f7b59304192b, type: 2}
+      objectReference: {fileID: 2100000, guid: 9a06d494c6a2fbc42b6065992c915a68, type: 2}
     - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
       propertyPath: m_LocalPosition.x
       value: -16.83
@@ -22194,7 +22261,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: ea290744fc6238749b0cbdb6efc56b31, type: 2}
     - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -7.66
+      value: -7.928
       objectReference: {fileID: 0}
     - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
       propertyPath: m_LocalPosition.y
@@ -22202,7 +22269,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 21.92
+      value: 23.669
       objectReference: {fileID: 0}
     - target: {fileID: 1357911731733883350, guid: 24dfe058bf31c0f419fe6e1dbef78c54, type: 3}
       propertyPath: m_LocalRotation.w
@@ -22529,6 +22596,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1051257874}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer (2)
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: 16.040009
@@ -22568,10 +22639,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer (2)
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -24237,6 +24304,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 364063969}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer (2)
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: 22.156303
@@ -24276,10 +24347,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer (2)
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -24482,6 +24549,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 364063969}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: 20.11399
@@ -24521,10 +24592,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -26199,6 +26266,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 339521293}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer (1)
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: -8.11
@@ -26238,10 +26309,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer (1)
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -30213,6 +30280,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1601308161}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: -4.31
@@ -30252,10 +30323,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -32694,6 +32761,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1601308161}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer (2)
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: 2.7930384
@@ -32733,10 +32804,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer (2)
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -33796,6 +33863,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 364063969}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer (1)
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: 17.444832
@@ -33835,10 +33906,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer (1)
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -36517,6 +36584,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 339521293}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer (2)
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: -15.242049
@@ -36556,10 +36627,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer (2)
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -36716,6 +36783,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 1051257874}
     m_Modifications:
+    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
+      propertyPath: m_Name
+      value: ESM Boxer (1)
+      objectReference: {fileID: 0}
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalPosition.x
       value: 12.411588
@@ -36755,10 +36826,6 @@ PrefabInstance:
     - target: {fileID: 5352723573284463500, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5333204992993444772, guid: f6d86b035b3290d4a9c75782a7d305ef, type: 3}
-      propertyPath: m_Name
-      value: ESM Boxer (1)
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
