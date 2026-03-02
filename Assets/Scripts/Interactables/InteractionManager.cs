@@ -1,7 +1,9 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
 using System;
+using UnityEngine.SceneManagement;
 using System.Collections;
+using Unity.VisualScripting;
 
 [RequireComponent(typeof(BoxCollider))]
 public abstract class InteractionManager : MonoBehaviour, IInteractable
@@ -20,34 +22,57 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
     [Header("Interaction Animation and ID")]
     [SerializeField] private AnimationClip _interactAnimation;
     [SerializeField] private string _interactId;
-    [SerializeField] private AudioClip _interactionSFX;
+    [SerializeField] internal AudioClip _interactionSFX;
     [SerializeField] private string _interactionPrompt = "Press to Interact";
     
     [Space(10)]
     [Header("Input Action Reference")]
     [SerializeField, CriticalReference] internal InputActionReference _interactInputAction;
-
-    internal InteractionUI ResolveInteractionUI()
-    {
-        return FindObjectOfType<InteractionUI>(true);
-    }
-
     protected virtual void Awake()
     {
         this.GetComponent<BoxCollider>().isTrigger = true;
 
         interactId = _interactId.Trim().ToLowerInvariant();
+    }
 
-        
+    private void Start()
+    {
+        StartCoroutine(FindPlayerScene("PlayerScene"));
+    }
 
-        var ui = ResolveInteractionUI();
-        if (ui == null)
-            return;
+    private void OnEnable()
+    {
+        if (_interactInputAction != null)
+            _interactInputAction.action.performed += InteractPressed;
+    }
 
-        if (ui._interactText != null)
-            ui._interactText.gameObject.SetActive(false);
-        if (ui._interactIcon != null)
-            ui._interactIcon.gameObject.SetActive(false);
+    private void OnDisable()
+    {
+        if (_interactInputAction != null)
+            _interactInputAction.action.performed -= InteractPressed;
+    }
+
+    private IEnumerator FindPlayerScene(string sceneName)
+    {
+        Scene scene = SceneManager.GetSceneByName(sceneName);
+        if (scene.isLoaded)
+        {
+            if (InteractionUI.Instance != null)
+            {
+                if (InteractionUI.Instance._interactText != null)
+                    InteractionUI.Instance._interactText.gameObject.SetActive(false);
+                if (InteractionUI.Instance._interactIcon != null)
+                    InteractionUI.Instance._interactIcon.gameObject.SetActive(false);
+            }
+        }
+        else 
+        {
+            while (!scene.isLoaded)
+            {
+                yield return null; // Wait until the scene is loaded
+            }
+            StopCoroutine(FindPlayerScene(sceneName)); // Stop the coroutine once the scene is loaded
+        }
     }
 
     public void DeactivateInteractable(MonoBehaviour interactable)
@@ -66,54 +91,41 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
 
         interactable.gameObject.SetActive(false);
 
-        var ui = ResolveInteractionUI();
-        if (ui == null)
-            return;
+        if (InteractionUI.Instance._interactIcon != null)
+            InteractionUI.Instance._interactIcon.gameObject.SetActive(false);
 
-        if (ui._interactIcon != null)
-            ui._interactIcon.gameObject.SetActive(false);
-
-        if (ui._interactText != null)
-            ui._interactText.gameObject.SetActive(false);
+        if (InteractionUI.Instance._interactText != null)
+            InteractionUI.Instance._interactText.gameObject.SetActive(false);
     }
 
+    // Only here to satisfy the IInteractable interface, actual interaction logic should be implemented in derived classes.
     public void OnInteractButtonPressed()
     {
-        if (!isPlayerNearby || !InputReader.InteractTriggered || !interactable)
+        throw new NotImplementedException("OnInteractButtonPressed should be implemented in the derived class.");
+    }
+
+    private void InteractPressed(InputAction.CallbackContext context)
+    {
+        if (!isPlayerNearby || !interactable)
             return;
 
-        Debug.Log($"Player interacted with {gameObject.name} using InputReader Interact.");
+        Debug.Log($"Player interacted with {gameObject.name} using InputAction.");
         Interact();
-        var ui = ResolveInteractionUI();
-        if(ui != null && _interactionSFX != null)
-            SoundManager.Instance.sfxSource.PlayOneShot(_interactionSFX);
     }
-
-    private void Update()
-    {
-        OnInteractButtonPressed();
-    }
-
     protected abstract void Interact();
-
-    
 
     public void SwapBasedOnInputMethod()
     {
-        var ui = ResolveInteractionUI();
-        if (ui == null)
-            return;
-
-        if (ui._interactText != null)
+        if (InteractionUI.Instance._interactText != null)
         {
-            ui._interactText.text = string.IsNullOrWhiteSpace(_interactionPrompt)
+            InteractionUI.Instance._interactText.text = string.IsNullOrWhiteSpace(_interactionPrompt)
                 ? "Press to Interact"
                 : _interactionPrompt;
-            ui._interactText.gameObject.SetActive(true);
+            InteractionUI.Instance._interactText.gameObject.SetActive(true);
         }
 
-        if (ui._interactIcon != null)
-            ui._interactIcon.gameObject.SetActive(true);
+        if (InteractionUI.Instance._interactIcon != null)
+                InteractionUI.Instance._interactIcon.gameObject.SetActive(true);
     }
 
     protected virtual void OnTriggerEnter(Collider other)
@@ -128,19 +140,15 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
 
         SwapBasedOnInputMethod();
 
-        var ui = ResolveInteractionUI();
-        if (ui == null)
-            return;
-
-        if (ui._interactText != null && interactable)
+        if (InteractionUI.Instance._interactText != null && interactable)
         {
-            ui._interactText.gameObject.SetActive(true);
-            if (ui._interactText.transform.parent != null)
-                ui._interactText.transform.parent.gameObject.SetActive(true);
+            InteractionUI.Instance._interactText.gameObject.SetActive(true);
+            if (InteractionUI.Instance._interactText.transform.parent != null)
+                InteractionUI.Instance._interactText.transform.parent.gameObject.SetActive(true);
         }
 
-        if (ui._interactIcon != null && interactable)
-            ui._interactIcon.gameObject.SetActive(true);
+        if (InteractionUI.Instance._interactIcon != null && interactable)
+            InteractionUI.Instance._interactIcon.gameObject.SetActive(true);
     }
 
     protected virtual void OnTriggerExit(Collider other)
@@ -149,15 +157,10 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
             return;
 
         isPlayerNearby = false;
-
-        var ui = ResolveInteractionUI();
-        if (ui == null)
-            return;
-        if (ui._interactText != null)
-            ui._interactText.gameObject.SetActive(false);
-
-        if (ui._interactIcon != null)
-            ui._interactIcon.gameObject.SetActive(false);
+            if (InteractionUI.Instance._interactText != null)
+                InteractionUI.Instance._interactText.gameObject.SetActive(false);
+        if (InteractionUI.Instance._interactIcon != null)
+            InteractionUI.Instance._interactIcon.gameObject.SetActive(false);
     }
 
     private void OnDrawGizmos()
