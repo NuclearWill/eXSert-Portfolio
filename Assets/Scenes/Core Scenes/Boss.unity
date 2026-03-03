@@ -30465,9 +30465,7 @@ MonoBehaviour:
   currentDoorState: 1
   doorLockState: 1
   doorType: 0
-  topDoorPart: {fileID: 1248340814}
-  bottomDoorPart: {fileID: 858828731}
-  distToOpenParts: 3
+  doorParts: []
   openSpeed: 3
   hingePivot: {fileID: 0}
 --- !u!43 &875705137
@@ -72780,6 +72778,10 @@ PrefabInstance:
       propertyPath: m_TagString
       value: Enemy
       objectReference: {fileID: 0}
+    - target: {fileID: 1977997027462636150, guid: 7f130de0e64227240aaeb555b561d10a, type: 3}
+      propertyPath: defeatSFX
+      value: 
+      objectReference: {fileID: 8300000, guid: abc0609dc00a72145bcde260c62b49f3, type: 3}
     - target: {fileID: 1977997027462636150, guid: 7f130de0e64227240aaeb555b561d10a, type: 3}
       propertyPath: healthBar
       value: 
