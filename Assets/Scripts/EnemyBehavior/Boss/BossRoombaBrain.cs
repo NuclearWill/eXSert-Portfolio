@@ -149,6 +149,24 @@ namespace EnemyBehavior.Boss
         [Tooltip("Master volume for all boss SFX (0-1).")]
         [Range(0f, 1f)] public float MasterSFXVolume = 1.0f;
 
+        [Header("Attack Indicator VFX")]
+        [Tooltip("VFX prefab to spawn before an attack to warn the player. Leave empty to disable.")]
+        [SerializeField] private GameObject attackIndicatorPrefab;
+        [Tooltip("Position offset from the boss's transform where the indicator spawns (local space).")]
+        [SerializeField] private Vector3 attackIndicatorOffset = new Vector3(0f, 0.5f, 3f);
+        [Tooltip("Seconds before the attack lands that the indicator appears.")]
+        [SerializeField] private float attackIndicatorLeadTime = 0.5f;
+        [Tooltip("How long the indicator stays visible. Set to 0 to auto-hide when attack starts.")]
+        [SerializeField] private float attackIndicatorDuration = 0f;
+        [Tooltip("If true, indicator follows the boss's position/rotation.")]
+        [SerializeField] private bool attackIndicatorFollowsBoss = true;
+        [Tooltip("Scale multiplier for the indicator VFX.")]
+        [SerializeField] private float attackIndicatorScale = 1f;
+        
+        // Runtime state for attack indicator
+        private GameObject attackIndicatorInstance;
+        private Coroutine attackIndicatorCoroutine;
+
         [Header("Windows")]
         public float ParryStaggerSeconds = 3.0f;
         public float PillarStunSeconds = 2.0f;
@@ -579,6 +597,90 @@ namespace EnemyBehavior.Boss
             float finalVolume = MasterSFXVolume * Mathf.Clamp01(volumeMultiplier);
             AttackAudioSource.PlayOneShot(clip, finalVolume);
         }
+        
+        #region Attack Indicator VFX
+        /// <summary>
+        /// Shows the attack indicator VFX before an attack.
+        /// </summary>
+        /// <param name="customOffset">Optional: Override the default offset for this specific attack.</param>
+        /// <param name="customDuration">Optional: Override the default duration for this specific attack.</param>
+        public void ShowAttackIndicator(Vector3? customOffset = null, float? customDuration = null)
+        {
+            if (attackIndicatorPrefab == null) return;
+
+            HideAttackIndicator();
+
+            Vector3 offset = customOffset ?? attackIndicatorOffset;
+            Vector3 spawnPos = transform.TransformPoint(offset);
+            Quaternion spawnRot = transform.rotation;
+
+            attackIndicatorInstance = Instantiate(attackIndicatorPrefab, spawnPos, spawnRot);
+            
+            if (attackIndicatorScale != 1f)
+            {
+                attackIndicatorInstance.transform.localScale *= attackIndicatorScale;
+            }
+
+            if (attackIndicatorFollowsBoss)
+            {
+                attackIndicatorInstance.transform.SetParent(transform);
+                attackIndicatorInstance.transform.localPosition = offset;
+                attackIndicatorInstance.transform.localRotation = Quaternion.identity;
+            }
+
+            float duration = customDuration ?? attackIndicatorDuration;
+            if (duration > 0f)
+            {
+                attackIndicatorCoroutine = StartCoroutine(HideIndicatorAfterDelay(duration));
+            }
+
+#if UNITY_EDITOR
+            EnemyBehaviorDebugLogBools.Log(nameof(BossRoombaBrain), $"[Boss] Attack indicator shown at offset {offset}");
+#endif
+        }
+
+        /// <summary>
+        /// Hides/destroys the attack indicator VFX.
+        /// </summary>
+        public void HideAttackIndicator()
+        {
+            if (attackIndicatorCoroutine != null)
+            {
+                StopCoroutine(attackIndicatorCoroutine);
+                attackIndicatorCoroutine = null;
+            }
+
+            if (attackIndicatorInstance != null)
+            {
+                Destroy(attackIndicatorInstance);
+                attackIndicatorInstance = null;
+            }
+        }
+
+        /// <summary>
+        /// Animation Event receiver: Shows the attack indicator.
+        /// </summary>
+        public void AttackIndicatorStart()
+        {
+            ShowAttackIndicator();
+        }
+
+        /// <summary>
+        /// Animation Event receiver: Hides the attack indicator.
+        /// </summary>
+        public void AttackIndicatorEnd()
+        {
+            HideAttackIndicator();
+        }
+
+        private IEnumerator HideIndicatorAfterDelay(float delay)
+        {
+            yield return WaitForSecondsCache.Get(delay);
+            HideAttackIndicator();
+        }
+        #endregion
+
+
         
         /// <summary>
         /// Plays the SFX for the given attack.
@@ -2155,9 +2257,18 @@ namespace EnemyBehavior.Boss
                 }
             }
             
+            // Show attack indicator at the start of windup
+            ShowAttackIndicator();
+            
             if (animator != null && !string.IsNullOrEmpty(a.AnimatorTriggerOnWindup)) animator.SetTrigger(a.AnimatorTriggerOnWindup);
             PlayAttackSFX(a); // Attack SFX
             yield return WaitForSecondsCache.Get(a.WindupSpeedMultiplier * GetClipLength(animator, a.WindupClipName));
+            
+            // Hide attack indicator when active phase begins (if duration was 0)
+            if (attackIndicatorDuration <= 0f)
+            {
+                HideAttackIndicator();
+            }
             
             // Store starting position for lunge
             Vector3 lungeStartPos = transform.position;

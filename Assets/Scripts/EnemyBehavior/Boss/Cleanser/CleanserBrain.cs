@@ -132,6 +132,24 @@ namespace EnemyBehavior.Boss.Cleanser
         [SerializeField] private string triggerStunned = "Stunned";
         [SerializeField] private string triggerDeath = "Death";
 
+        [Header("Attack Indicator VFX")]
+        [Tooltip("VFX prefab to spawn before an attack to warn the player. Leave empty to disable.")]
+        [SerializeField] private GameObject attackIndicatorPrefab;
+        [Tooltip("Position offset from the boss's transform where the indicator spawns (local space).")]
+        [SerializeField] private Vector3 attackIndicatorOffset = new Vector3(0f, 0.5f, 2f);
+        [Tooltip("Seconds before the attack lands that the indicator appears.")]
+        [SerializeField] private float attackIndicatorLeadTime = 0.4f;
+        [Tooltip("How long the indicator stays visible. Set to 0 to auto-hide when attack starts.")]
+        [SerializeField] private float attackIndicatorDuration = 0f;
+        [Tooltip("If true, indicator follows the boss's position/rotation.")]
+        [SerializeField] private bool attackIndicatorFollowsBoss = true;
+        [Tooltip("Scale multiplier for the indicator VFX.")]
+        [SerializeField] private float attackIndicatorScale = 1f;
+        
+        // Runtime state for attack indicator
+        private GameObject attackIndicatorInstance;
+        private Coroutine attackIndicatorCoroutine;
+
         // Runtime state
         private NavMeshAgent agent;
         private Transform player;
@@ -232,6 +250,88 @@ namespace EnemyBehavior.Boss.Cleanser
             }
         }
         
+        #endregion
+
+        #region Attack Indicator VFX
+        /// <summary>
+        /// Shows the attack indicator VFX before an attack.
+        /// </summary>
+        /// <param name="customOffset">Optional: Override the default offset for this specific attack.</param>
+        /// <param name="customDuration">Optional: Override the default duration for this specific attack.</param>
+        public void ShowAttackIndicator(Vector3? customOffset = null, float? customDuration = null)
+        {
+            if (attackIndicatorPrefab == null) return;
+
+            HideAttackIndicator();
+
+            Vector3 offset = customOffset ?? attackIndicatorOffset;
+            Vector3 spawnPos = transform.TransformPoint(offset);
+            Quaternion spawnRot = transform.rotation;
+
+            attackIndicatorInstance = Instantiate(attackIndicatorPrefab, spawnPos, spawnRot);
+            
+            if (attackIndicatorScale != 1f)
+            {
+                attackIndicatorInstance.transform.localScale *= attackIndicatorScale;
+            }
+
+            if (attackIndicatorFollowsBoss)
+            {
+                attackIndicatorInstance.transform.SetParent(transform);
+                attackIndicatorInstance.transform.localPosition = offset;
+                attackIndicatorInstance.transform.localRotation = Quaternion.identity;
+            }
+
+            float duration = customDuration ?? attackIndicatorDuration;
+            if (duration > 0f)
+            {
+                attackIndicatorCoroutine = StartCoroutine(HideIndicatorAfterDelay(duration));
+            }
+
+#if UNITY_EDITOR
+            EnemyBehaviorDebugLogBools.Log(nameof(CleanserBrain), $"[Cleanser] Attack indicator shown at offset {offset}");
+#endif
+        }
+
+        /// <summary>
+        /// Hides/destroys the attack indicator VFX.
+        /// </summary>
+        public void HideAttackIndicator()
+        {
+            if (attackIndicatorCoroutine != null)
+            {
+                StopCoroutine(attackIndicatorCoroutine);
+                attackIndicatorCoroutine = null;
+            }
+
+            if (attackIndicatorInstance != null)
+            {
+                Destroy(attackIndicatorInstance);
+                attackIndicatorInstance = null;
+            }
+        }
+
+        /// <summary>
+        /// Animation Event receiver: Shows the attack indicator.
+        /// </summary>
+        public void AttackIndicatorStart()
+        {
+            ShowAttackIndicator();
+        }
+
+        /// <summary>
+        /// Animation Event receiver: Hides the attack indicator.
+        /// </summary>
+        public void AttackIndicatorEnd()
+        {
+            HideAttackIndicator();
+        }
+
+        private IEnumerator HideIndicatorAfterDelay(float delay)
+        {
+            yield return WaitForSecondsCache.Get(delay);
+            HideAttackIndicator();
+        }
         #endregion
 
         private void Awake()
@@ -777,6 +877,9 @@ namespace EnemyBehavior.Boss.Cleanser
             // Face player before attack
             yield return FaceTarget(player, 0.15f);
             
+            // Show attack indicator at start of attack
+            ShowAttackIndicator();
+            
             // Setup damage reduction if applicable
             if (attack.HasWindupDamageReduction)
             {
@@ -817,6 +920,9 @@ namespace EnemyBehavior.Boss.Cleanser
             // Ensure hitbox is disabled
             isHitboxActive = false;
             
+            // Hide attack indicator when attack completes
+            HideAttackIndicator();
+            
             // Disable damage reduction
             SetDamageReduction(false, 1f);
             
@@ -853,6 +959,12 @@ namespace EnemyBehavior.Boss.Cleanser
         {
             if (!isExecutingAttack) return;
             isHitboxActive = true;
+            
+            // Hide attack indicator when hitbox becomes active (if duration was 0)
+            if (attackIndicatorDuration <= 0f)
+            {
+                HideAttackIndicator();
+            }
             
 #if UNITY_EDITOR
             EnemyBehaviorDebugLogBools.Log(nameof(CleanserBrain), "[Cleanser] Hitbox enabled.");
