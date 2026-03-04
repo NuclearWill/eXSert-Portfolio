@@ -164,6 +164,8 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     private float movementSFXFadeOutDuration = 0.3f;
     [SerializeField, Tooltip("Minimum speed threshold to consider the enemy as moving.")]
     private float movementSFXSpeedThreshold = 0.1f;
+    [SerializeField, Tooltip("Keeps the clip playing nonstop; used for enemies that will allows play movement sfx like drone.")]
+    private bool keepPlayingClip = false;
     
     // Movement SFX runtime state
     private AudioSource movementAudioSource;
@@ -1029,7 +1031,7 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
             // Started moving - play movement SFX
             StartMovementSFX();
         }
-        else if (!isMoving && wasMovingForSFX)
+        else if (!isMoving && wasMovingForSFX && !keepPlayingClip)
         {
             // Stopped moving - fade out and play stop clip
             StopMovementSFX();
@@ -1075,6 +1077,8 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     {
         if (movementAudioSource == null || !movementAudioSource.isPlaying) return;
         
+
+        // using Force stop instead of fade for now; can re-enable fade if needed
         // // Start fade out coroutine
         // if (movementSFXFadeOutDuration > 0f)
         // {
@@ -1092,6 +1096,8 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
         EnemyBehaviorDebugLogBools.Log("BaseEnemy", $"[{name}] Movement SFX stopping (fade: {movementSFXFadeOutDuration}s).");
 #endif
     }
+
+    //Using Force stop instead; deprecated
 
     /// <summary>
     /// Coroutine to smoothly fade out the movement SFX.
