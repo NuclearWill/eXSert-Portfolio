@@ -361,9 +361,13 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     // Update is called once per frame
     protected virtual void Update()
     {
-        // Not sure if Update will be needed in the base class
-        // but it is here if we need it later
-        // Trying to not use it as much as possible for performance reasons
+        // Update movement SFX based on actual agent velocity
+        // This ensures SFX stops even when PlayLocomotionAnim isn't called (e.g., during Attack state)
+        if (movementSFXClip != null && agent != null && agent.enabled)
+        {
+            float currentSpeed = agent.velocity.magnitude;
+            UpdateMovementSFX(currentSpeed);
+        }
     }
 
     // --- PASSIVE MOVEMENT AND BEHAVIOR METHODS ---
@@ -577,9 +581,7 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
             PlayState(locomotionStateName);
         }
         // If neither parameter nor state exists, just skip locomotion animation
-        
-        // Update movement SFX based on current speed
-        UpdateMovementSFX(moveSpeed);
+        // Note: Movement SFX is now handled in Update() based on actual agent velocity
     }
 
     protected virtual void PlayAttackAnim()
@@ -1048,15 +1050,18 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
             movementSFXFadeCoroutine = null;
         }
         
+        // Ensure we have an audio source (lazy initialization)
+        EnsureAudioSource();
+        
+        if (movementAudioSource == null) return;
         
         movementAudioSource.clip = movementSFXClip;
-        movementAudioSource.volume = SoundManager.Instance.sfxSource.volume;
+        movementAudioSource.volume = SoundManager.Instance.sfxSource.volume * movementSFXVolume;
         movementAudioSource.loop = true;
         
-        if (!movementAudioSource.isPlaying)
-        {
-            movementAudioSource.Play();
-        }
+        // Always call Play() to restart the audio, even if it was playing before
+        // This ensures the SFX restarts properly after stopping
+        movementAudioSource.Play();
 
 #if UNITY_EDITOR
         EnemyBehaviorDebugLogBools.Log("BaseEnemy", $"[{name}] Movement SFX started.");
