@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.SceneManagement;
 using EnemyBehavior;
+using Unity.VisualScripting;
 
 // BaseEnemy is generic so derived classes can define their own states and triggers
 public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttacker
@@ -152,6 +153,24 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     [SerializeField, Tooltip("Audio clip to play when the enemy is hit.")]
     private AudioClip[] hitSFX;
     
+    [Header("Movement SFX")]
+    [SerializeField, Tooltip("Audio clip to loop while the enemy is moving.")]
+    private AudioClip movementSFXClip;
+    [SerializeField, Tooltip("Audio clip to play when the enemy stops moving (optional).")]
+    private AudioClip movementStopSFXClip;
+    [SerializeField, Range(0f, 1f), Tooltip("Volume multiplier for movement SFX.")]
+    private float movementSFXVolume = 0.5f;
+    [SerializeField, Tooltip("Duration in seconds for the movement SFX to fade out when stopping.")]
+    private float movementSFXFadeOutDuration = 0.3f;
+    [SerializeField, Tooltip("Minimum speed threshold to consider the enemy as moving.")]
+    private float movementSFXSpeedThreshold = 0.1f;
+    
+    // Movement SFX runtime state
+    private AudioSource movementAudioSource;
+    private float originalMovementSFXVolume;
+    private bool wasMovingForSFX;
+    private Coroutine movementSFXFadeCoroutine;
+    
     [Header("Behavior Profile")]
     [SerializeField, Tooltip("Optional behavior profile for NavMeshAgent settings. If assigned, these settings will be applied on Awake.")]
     public EnemyBehaviorProfile behaviorProfile;
@@ -285,6 +304,7 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
         EnsureDetectionCollider();
         EnsureAttackCollider();
         EnsurePlayerTargetReference();
+        EnsureAudioSource();
 
         animator = GetComponentInChildren<Animator>();
         if (animator == null)
@@ -341,9 +361,13 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     // Update is called once per frame
     protected virtual void Update()
     {
-        // Not sure if Update will be needed in the base class
-        // but it is here if we need it later
-        // Trying to not use it as much as possible for performance reasons
+        // Update movement SFX based on actual agent velocity
+        // This ensures SFX stops even when PlayLocomotionAnim isn't called (e.g., during Attack state)
+        if (movementSFXClip != null && agent != null && agent.enabled)
+        {
+            float currentSpeed = agent.velocity.magnitude;
+            UpdateMovementSFX(currentSpeed);
+        }
     }
 
     // --- PASSIVE MOVEMENT AND BEHAVIOR METHODS ---
@@ -390,6 +414,22 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
         }
 
         externalHelperRoots.Clear();
+    }
+
+    private void EnsureAudioSource()
+    {
+        if (movementSFXClip == null)
+            return;
+
+        if (movementAudioSource == null)
+        {
+            movementAudioSource = gameObject.AddComponent<AudioSource>();
+            movementAudioSource.playOnAwake = false;
+            movementAudioSource.loop = true;
+            movementAudioSource.clip = movementSFXClip;
+            movementAudioSource.volume = movementSFXVolume;
+            originalMovementSFXVolume = movementSFXVolume;
+        }
     }
 
     private void EnsureRigidBodyForTriggers()
@@ -503,6 +543,9 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
         SceneManager.sceneLoaded -= HandleSceneLoaded;
         CleanupExternalHelpers();
         
+        // Stop movement SFX
+        ForceStopMovementSFX();
+        
         // Unregister from the attack queue system
         UnregisterFromAttackQueue();
     }
@@ -538,6 +581,7 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
             PlayState(locomotionStateName);
         }
         // If neither parameter nor state exists, just skip locomotion animation
+        // Note: Movement SFX is now handled in Update() based on actual agent velocity
     }
 
     protected virtual void PlayAttackAnim()
@@ -968,6 +1012,145 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
         }
     }
 
+    #region Movement SFX
+    /// <summary>
+    /// Updates the movement SFX based on the current movement speed.
+    /// Call this from Update or from locomotion methods when the enemy's speed changes.
+    /// </summary>
+    /// <param name="currentSpeed">The current movement speed of the enemy.</param>
+    protected virtual void UpdateMovementSFX(float currentSpeed)
+    {
+        if (movementSFXClip == null) return;
+        
+        bool isMoving = currentSpeed > movementSFXSpeedThreshold;
+        
+        if (isMoving && !wasMovingForSFX)
+        {
+            // Started moving - play movement SFX
+            StartMovementSFX();
+        }
+        else if (!isMoving && wasMovingForSFX)
+        {
+            // Stopped moving - fade out and play stop clip
+            StopMovementSFX();
+        }
+        
+        wasMovingForSFX = isMoving;
+    }
+
+    /// <summary>
+    /// Starts playing the movement SFX loop.
+    /// </summary>
+    protected virtual void StartMovementSFX()
+    {
+        // Stop any ongoing fade
+        if (movementSFXFadeCoroutine != null)
+        {
+            StopCoroutine(movementSFXFadeCoroutine);
+            movementSFXFadeCoroutine = null;
+        }
+        
+        // Ensure we have an audio source (lazy initialization)
+        EnsureAudioSource();
+        
+        if (movementAudioSource == null) return;
+        
+        movementAudioSource.clip = movementSFXClip;
+        movementAudioSource.volume = SoundManager.Instance.sfxSource.volume * movementSFXVolume;
+        movementAudioSource.loop = true;
+        
+        // Always call Play() to restart the audio, even if it was playing before
+        // This ensures the SFX restarts properly after stopping
+        movementAudioSource.Play();
+
+#if UNITY_EDITOR
+        EnemyBehaviorDebugLogBools.Log("BaseEnemy", $"[{name}] Movement SFX started.");
+#endif
+    }
+
+    /// <summary>
+    /// Stops the movement SFX with a smooth fade out.
+    /// </summary>
+    protected virtual void StopMovementSFX()
+    {
+        if (movementAudioSource == null || !movementAudioSource.isPlaying) return;
+        
+        // Start fade out coroutine
+        if (movementSFXFadeOutDuration > 0f)
+        {
+            movementSFXFadeCoroutine = StartCoroutine(FadeOutMovementSFX());
+        }
+        else
+        {
+            // Immediate stop
+            movementAudioSource.Stop();
+            movementAudioSource.volume = originalMovementSFXVolume;
+            PlayMovementStopSFX();
+        }
+
+#if UNITY_EDITOR
+        EnemyBehaviorDebugLogBools.Log("BaseEnemy", $"[{name}] Movement SFX stopping (fade: {movementSFXFadeOutDuration}s).");
+#endif
+    }
+
+    /// <summary>
+    /// Coroutine to smoothly fade out the movement SFX.
+    /// </summary>
+    private IEnumerator FadeOutMovementSFX()
+    {
+        if (movementAudioSource == null) yield break;
+        
+        float startVolume = movementAudioSource.volume;
+        float elapsed = 0f;
+        
+        while (elapsed < movementSFXFadeOutDuration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / movementSFXFadeOutDuration;
+            movementAudioSource.volume = Mathf.Lerp(startVolume, 0f, t);
+            yield return null;
+        }
+        
+        movementAudioSource.Stop();
+        movementAudioSource.volume = originalMovementSFXVolume; // Reset volume for SoundManager
+        
+        PlayMovementStopSFX();
+        
+        movementSFXFadeCoroutine = null;
+    }
+
+    /// <summary>
+    /// Plays the optional stop SFX when movement ends.
+    /// </summary>
+    private void PlayMovementStopSFX()
+    {
+        if (movementStopSFXClip != null && movementAudioSource != null)
+        {
+            movementAudioSource.PlayOneShot(movementStopSFXClip, movementSFXVolume);
+        }
+    }
+
+    /// <summary>
+    /// Immediately stops all movement SFX without fade. Call this on death or disable.
+    /// </summary>
+    protected void ForceStopMovementSFX()
+    {
+        if (movementSFXFadeCoroutine != null)
+        {
+            StopCoroutine(movementSFXFadeCoroutine);
+            movementSFXFadeCoroutine = null;
+        }
+        
+        if (movementAudioSource != null && movementAudioSource.clip == movementSFXClip)
+        {
+            movementAudioSource.Stop();
+            movementAudioSource.volume = originalMovementSFXVolume;
+        }
+        
+        wasMovingForSFX = false;
+    }
+    #endregion
+
     // SetHealth now clamps and updates health, but expects the new value
     public virtual void SetHealth(float value)
     {
@@ -1193,6 +1376,9 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     {
         // Clean up any active attack indicator
         HideAttackIndicator();
+        
+        // Stop movement SFX immediately
+        ForceStopMovementSFX();
         
         // Disable detection collider
         if (detectionCollider != null)
