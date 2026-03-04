@@ -10,6 +10,8 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using Unity.VisualScripting;
+
 
 
 #if UNITY_EDITOR
@@ -63,6 +65,11 @@ public class DoorHandler : MonoBehaviour
     [ShowIfDoorType(DoorHandler.DoorType.OpenOut, DoorHandler.DoorType.OpenIn)]
     [SerializeField] private Transform hingePivot;
 
+    [SerializeField] private Light doorLight;
+    [SerializeField] private Color lockedLightColor;
+    [SerializeField] private Color unlockedOpenLightColor;
+    [SerializeField] private Color unlockedClosedLightColor;
+
     // Hinge variables that are used for OpenIn and OpenOut door types
     private Quaternion hingeStartRot;
     private Quaternion hingeTargetRot;
@@ -84,6 +91,8 @@ public class DoorHandler : MonoBehaviour
         {
             hingeOriginalRot = hingePivot.rotation;
         }
+
+        StartingLightColor();
     }
 
     /// <summary>
@@ -103,10 +112,26 @@ public class DoorHandler : MonoBehaviour
         }
     }
 
+    private void StartingLightColor()
+    {
+        if (DoorLockState.Locked == doorLockState)
+        {
+            doorLight.color = lockedLightColor;
+        }
+        else
+        {
+            if (currentDoorState == DoorState.Open)
+                doorLight.color = unlockedOpenLightColor;
+            else
+                doorLight.color = unlockedClosedLightColor;
+        }
+    }
+
     private void OpenDoor()
     {
         Debug.Log("Opening the door.");
         currentDoorState = DoorState.Open;
+        doorLight.color = unlockedOpenLightColor;
 
         switch (doorType)
         {
@@ -126,6 +151,7 @@ public class DoorHandler : MonoBehaviour
     {
         Debug.Log("Closing the door.");
         currentDoorState = DoorState.Closed;
+        doorLight.color = unlockedClosedLightColor;
 
         switch (doorType)
         {
