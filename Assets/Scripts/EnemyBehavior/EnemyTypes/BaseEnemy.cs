@@ -1075,18 +1075,18 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     {
         if (movementAudioSource == null || !movementAudioSource.isPlaying) return;
         
-        // Start fade out coroutine
-        if (movementSFXFadeOutDuration > 0f)
-        {
-            movementSFXFadeCoroutine = StartCoroutine(FadeOutMovementSFX());
-        }
-        else
-        {
+        // // Start fade out coroutine
+        // if (movementSFXFadeOutDuration > 0f)
+        // {
+        //     movementSFXFadeCoroutine = StartCoroutine(FadeOutMovementSFX());
+        // }
+        // else
+        // {
             // Immediate stop
             movementAudioSource.Stop();
             movementAudioSource.volume = originalMovementSFXVolume;
             PlayMovementStopSFX();
-        }
+        //}
 
 #if UNITY_EDITOR
         EnemyBehaviorDebugLogBools.Log("BaseEnemy", $"[{name}] Movement SFX stopping (fade: {movementSFXFadeOutDuration}s).");
@@ -1096,28 +1096,28 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     /// <summary>
     /// Coroutine to smoothly fade out the movement SFX.
     /// </summary>
-    private IEnumerator FadeOutMovementSFX()
-    {
-        if (movementAudioSource == null) yield break;
+    // private IEnumerator FadeOutMovementSFX()
+    // {
+    //     if (movementAudioSource == null) yield break;
         
-        float startVolume = movementAudioSource.volume;
-        float elapsed = 0f;
+    //     float startVolume = movementAudioSource.volume;
+    //     float elapsed = 0f;
         
-        while (elapsed < movementSFXFadeOutDuration)
-        {
-            elapsed += Time.deltaTime;
-            float t = elapsed / movementSFXFadeOutDuration;
-            movementAudioSource.volume = Mathf.Lerp(startVolume, 0f, t);
-            yield return null;
-        }
+    //     while (elapsed < movementSFXFadeOutDuration)
+    //     {
+    //         elapsed += Time.deltaTime;
+    //         float t = elapsed / movementSFXFadeOutDuration;
+    //         movementAudioSource.volume = Mathf.Lerp(startVolume, 0f, t);
+    //         yield return null;
+    //     }
         
-        movementAudioSource.Stop();
-        movementAudioSource.volume = originalMovementSFXVolume; // Reset volume for SoundManager
+    //     movementAudioSource.Stop();
+    //     movementAudioSource.volume = originalMovementSFXVolume; // Reset volume for SoundManager
         
-        PlayMovementStopSFX();
+    //     PlayMovementStopSFX();
         
-        movementSFXFadeCoroutine = null;
-    }
+    //     movementSFXFadeCoroutine = null;
+    // }
 
     /// <summary>
     /// Plays the optional stop SFX when movement ends.
