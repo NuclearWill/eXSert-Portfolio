@@ -62,8 +62,6 @@ public class BaseCrawlerEnemy : BaseEnemy<CrawlerEnemyState, CrawlerEnemyTrigger
 
     protected override void Awake()
     {
-        // Ensure the pooled object includes any wrapper parents (e.g., crawler IK rig roots).
-        AdoptWrapperParentsForPooling();
         base.Awake();
 
         foreach (var helper in helperRootsToCleanup)
@@ -128,6 +126,13 @@ public class BaseCrawlerEnemy : BaseEnemy<CrawlerEnemyState, CrawlerEnemyTrigger
         if (bombAvoidanceBurstCoroutine != null)
             StopCoroutine(bombAvoidanceBurstCoroutine);
         bombAvoidanceBurstCoroutine = StartCoroutine(BombAvoidanceBurst());
+
+        // If this crawler was prewarmed (instantiated inactive), the Awake-started coroutine
+        // can be stopped when the object is disabled. Restart it so non-pocket crawlers
+        // reliably transition out of Ambush when spawned from the pool.
+        if (ensureChaseCoroutine != null)
+            StopCoroutine(ensureChaseCoroutine);
+        ensureChaseCoroutine = StartCoroutine(EnsureChaseIfNoPocket());
 
         TryAutoRegisterWithSwarmManager();
     }
