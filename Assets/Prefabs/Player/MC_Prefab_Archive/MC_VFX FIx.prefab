@@ -5450,6 +5450,8 @@ MonoBehaviour:
   guardAttackAutoGenerateHitbox: 0
   plungeRecoveryDelay: 0
   plungeIdleBlendTime: 0.757
+  debugPlungeDamage: 1
+  debugPlungeDamageInitialized: 1
   attackAudioSource: {fileID: 0}
   inputBufferWindow: 0.25
 --- !u!114 &6348948781746406361
@@ -5481,6 +5483,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AerialComboManager
   comboResetTime: 1
   debugMode: 0
+  plungeDamageMultiplierPerCombo: 1.25
+  useAttackBasedPlungeScaling: 0
+  plungeDamageMultiplierPerAerialAttack: 1.12
   characterController: {fileID: 2289477533837267770}
   animationController: {fileID: 5311890396266669227}
   attackDatabase: {fileID: 11400000, guid: 5faf74d628b25214ca871b83ff4b455d, type: 2}
@@ -7841,7 +7846,6 @@ MonoBehaviour:
   walkSpeed: 1.1
   jogSpeed: 3.06
   sprintSpeed: 5
-  jogDelaySeconds: 3.5
   joystickWalkThreshold: 0.9
   sprintDelaySeconds: 2
   friction: 10
@@ -7862,6 +7866,9 @@ MonoBehaviour:
   aerialLightAttackHangTime: 0.6
   plungeHoverTime: 0.13
   plungeDownSpeed: 16
+  aerialCombatMinHeightAboveGroundOverride: 0
+  aerialCombatHeightAboveBasicJump: 1.5
+  aerialCombatGroundProbeDistance: 12
   boxSize: {x: 0.8, y: 0.1, z: 0.8}
   maxDistance: 0
   layerMask:
