@@ -65,11 +65,16 @@ public class DoorHandler : MonoBehaviour
     [ShowIfDoorType(DoorHandler.DoorType.OpenOut, DoorHandler.DoorType.OpenIn)]
     [SerializeField] private Transform hingePivot;
 
+    [Header("Door Light Settings")]
+    [Tooltip("Light bulb to change color")]
     public GameObject doorLightObject;
+    [Tooltip("Light component on the door to change color")]
     public Light doorLight;
+    [Tooltip("Color of the light when the door is locked")]
     public Color lockedLightColor;
-    public Color unlockedOpenLightColor;
-    public Color unlockedClosedLightColor;
+    [Tooltip("Color of the light when the door is unlocked")]
+    public Color unlockedLightColor;
+    [Tooltip("Speed of the light color transition")]
     public float lightFadeSpeed = 2f;
 
     // Hinge variables that are used for OpenIn and OpenOut door types
@@ -124,24 +129,22 @@ public class DoorHandler : MonoBehaviour
         else
         {
             if (currentDoorState == DoorState.Open)
-                doorLight.color = unlockedOpenLightColor;
-            else
-                doorLight.color = unlockedClosedLightColor;
+                doorLight.color = unlockedLightColor;
         }
     }
 
-    internal Mesh GetLightMesh()
+    internal MeshRenderer GetLightMeshRenderer()
     {
         if (doorLightObject != null)
         {
-            MeshFilter meshFilter = doorLightObject.GetComponent<MeshFilter>();
-            if (meshFilter != null)
+            MeshRenderer meshRenderer = doorLightObject.GetComponent<MeshRenderer>();
+            if (meshRenderer != null)
             {
-                return meshFilter.mesh;
+                return meshRenderer;
             }
             else
             {
-                Debug.LogWarning("Door light object does not have a MeshFilter component.");
+                Debug.LogWarning("Door light object does not have a MeshRenderer component.");
                 return null;
             }
         }
@@ -153,16 +156,18 @@ public class DoorHandler : MonoBehaviour
     }
 
     // Fade Color into eachother over time, used for light color transitions when opening/closing and locking/unlocking the door
-    internal IEnumerator FadeColorIntoEachother(Color fromColor, Color toColor, Mesh lightMesh, float duration)
+    internal IEnumerator FadeColorIntoEachother(Color fromColor, Color toColor, MeshRenderer lightMeshRenderer, float duration)
     {
         float elapsed = 0f;
         while (elapsed < duration)
         {
             float t = Mathf.Clamp01(elapsed / duration);
             doorLight.color = Color.Lerp(fromColor, toColor, t);
-            lightMesh.colors = null; // Clear any existing vertex colors
-            var newLightColor = new Color[] { doorLight.color, doorLight.color, doorLight.color, doorLight.color }; // Set vertex colors to the current light color
-            lightMesh.colors = Color.Lerp(fromColor, toColor, t) == doorLight.color ? newLightColor : lightMesh.colors; // Update vertex colors to match the current light color
+    
+            Material mat = lightMeshRenderer.material;
+
+            mat.color = Color.Lerp(fromColor, toColor, t);
+
             elapsed += Time.deltaTime;
             yield return null;
         }
@@ -177,8 +182,6 @@ public class DoorHandler : MonoBehaviour
         if (doorLockState == DoorLockState.Locked)
             doorLockState = DoorLockState.Unlocked;
         
-        StartCoroutine(FadeColorIntoEachother(unlockedClosedLightColor, unlockedOpenLightColor, GetLightMesh(), lightFadeSpeed));
-
         switch (doorType)
         {
             case DoorType.OpenUnconvential:
@@ -197,8 +200,6 @@ public class DoorHandler : MonoBehaviour
     {
         Debug.Log("Closing the door.");
         currentDoorState = DoorState.Closed;
-
-        StartCoroutine(FadeColorIntoEachother(unlockedOpenLightColor, unlockedClosedLightColor, GetLightMesh(), lightFadeSpeed));
 
         switch (doorType)
         {
