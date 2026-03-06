@@ -153,6 +153,7 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     [SerializeField, Tooltip("Audio clip to play when the enemy is hit.")]
     private AudioClip[] hitSFX;
     
+    
     [Header("Movement SFX")]
     [SerializeField, Tooltip("Audio clip to loop while the enemy is moving.")]
     private AudioClip movementSFXClip;
@@ -164,12 +165,15 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     private float movementSFXFadeOutDuration = 0.3f;
     [SerializeField, Tooltip("Minimum speed threshold to consider the enemy as moving.")]
     private float movementSFXSpeedThreshold = 0.1f;
+    [SerializeField, Tooltip("When enabled, the movement SFX loops continuously regardless of movement state. Use for drones (always moving) or turrets (stationary but need ambient sound).")]
+    private bool loopSFXContinuously = false;
     
     // Movement SFX runtime state
     private AudioSource movementAudioSource;
     private float originalMovementSFXVolume;
     private bool wasMovingForSFX;
     private Coroutine movementSFXFadeCoroutine;
+    
     
     [Header("Behavior Profile")]
     [SerializeField, Tooltip("Optional behavior profile for NavMeshAgent settings. If assigned, these settings will be applied on Awake.")]
@@ -290,6 +294,53 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
         }
     }
 
+    /// <summary>
+    /// Some enemy prefabs use a parent wrapper GameObject (e.g., a turret base / crawler IK rig root)
+    /// while the <see cref="BaseEnemyCore"/>-derived script lives on a child. The pooling factory
+    /// operates on the <see cref="BaseEnemyCore"/>'s Transform, so returning only the child would
+    /// leave wrapper siblings behind in the scene.
+    ///
+    /// This method safely inverts the hierarchy chain so this enemy object becomes the pooled root,
+    /// adopting eligible parent wrappers as children. It intentionally avoids touching external
+    /// scene containers like spawn markers/pockets.
+    ///
+    /// Call this from derived enemy classes that are known to have wrapper parents.
+    /// </summary>
+    protected void AdoptWrapperParentsForPooling()
+    {
+        // Safety: only adjust a limited number of ancestor levels.
+        const int maxSteps = 32;
+        int steps = 0;
+
+        while (transform.parent != null && steps++ < maxSteps)
+        {
+            var parent = transform.parent;
+
+            // If the parent is itself an enemy core, the factory already tracks the correct root.
+            if (parent.GetComponent<BaseEnemyCore>() != null)
+                break;
+
+            // Avoid consuming external scene containers.
+            // Use string-based GetComponent to avoid hard dependencies on encounter/progression assemblies.
+            if (parent.GetComponent("Progression.Encounters.EnemySpawnMarker") != null)
+                break;
+            if (parent.GetComponent<CrawlerPocket>() != null)
+                break;
+
+            // Only adopt parents that look like they belong to this enemy's prefab hierarchy.
+            // (Commonly they share layer/tag with the enemy object.)
+            bool parentLooksLikeEnemyWrapper = parent.CompareTag("Enemy") || parent.gameObject.layer == gameObject.layer;
+            if (!parentLooksLikeEnemyWrapper)
+                break;
+
+            var grandparent = parent.parent;
+
+            // Detach self to grandparent first to avoid creating a parent-child cycle.
+            transform.SetParent(grandparent, worldPositionStays: true);
+            parent.SetParent(transform, worldPositionStays: true);
+        }
+    }
+
     // Awake is called when the script instance is being loaded
     protected virtual void Awake()
     {
@@ -361,9 +412,13 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     // Update is called once per frame
     protected virtual void Update()
     {
-        // Not sure if Update will be needed in the base class
-        // but it is here if we need it later
-        // Trying to not use it as much as possible for performance reasons
+        // Update movement SFX based on actual agent velocity
+        // This ensures SFX stops even when PlayLocomotionAnim isn't called (e.g., during Attack state)
+        if (movementSFXClip != null && agent != null && agent.enabled)
+        {
+            float currentSpeed = agent.velocity.magnitude;
+            UpdateMovementSFX(currentSpeed);
+        }
     }
 
     // --- PASSIVE MOVEMENT AND BEHAVIOR METHODS ---
@@ -577,9 +632,7 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
             PlayState(locomotionStateName);
         }
         // If neither parameter nor state exists, just skip locomotion animation
-        
-        // Update movement SFX based on current speed
-        UpdateMovementSFX(moveSpeed);
+        // Note: Movement SFX is now handled in Update() based on actual agent velocity
     }
 
     protected virtual void PlayAttackAnim()
@@ -1020,6 +1073,17 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     {
         if (movementSFXClip == null) return;
         
+        // For continuous looping (drones, turrets), start once and never stop based on movement
+        if (loopSFXContinuously)
+        {
+            if (!wasMovingForSFX)
+            {
+                StartMovementSFX();
+                wasMovingForSFX = true;
+            }
+            return;
+        }
+        
         bool isMoving = currentSpeed > movementSFXSpeedThreshold;
         
         if (isMoving && !wasMovingForSFX)
@@ -1048,15 +1112,18 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
             movementSFXFadeCoroutine = null;
         }
         
+        // Ensure we have an audio source (lazy initialization)
+        EnsureAudioSource();
+        
+        if (movementAudioSource == null) return;
         
         movementAudioSource.clip = movementSFXClip;
-        movementAudioSource.volume = SoundManager.Instance.sfxSource.volume;
+        movementAudioSource.volume = SoundManager.Instance.sfxSource.volume * movementSFXVolume;
         movementAudioSource.loop = true;
         
-        if (!movementAudioSource.isPlaying)
-        {
-            movementAudioSource.Play();
-        }
+        // Always call Play() to restart the audio, even if it was playing before
+        // This ensures the SFX restarts properly after stopping
+        movementAudioSource.Play();
 
 #if UNITY_EDITOR
         EnemyBehaviorDebugLogBools.Log("BaseEnemy", $"[{name}] Movement SFX started.");
@@ -1070,49 +1137,53 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     {
         if (movementAudioSource == null || !movementAudioSource.isPlaying) return;
         
-        // Start fade out coroutine
-        if (movementSFXFadeOutDuration > 0f)
-        {
-            movementSFXFadeCoroutine = StartCoroutine(FadeOutMovementSFX());
-        }
-        else
-        {
+
+        // using Force stop instead of fade for now; can re-enable fade if needed
+        // // Start fade out coroutine
+        // if (movementSFXFadeOutDuration > 0f)
+        // {
+        //     movementSFXFadeCoroutine = StartCoroutine(FadeOutMovementSFX());
+        // }
+        // else
+        // {
             // Immediate stop
             movementAudioSource.Stop();
             movementAudioSource.volume = originalMovementSFXVolume;
             PlayMovementStopSFX();
-        }
+        //}
 
 #if UNITY_EDITOR
         EnemyBehaviorDebugLogBools.Log("BaseEnemy", $"[{name}] Movement SFX stopping (fade: {movementSFXFadeOutDuration}s).");
 #endif
     }
 
+    //Using Force stop instead; deprecated
+
     /// <summary>
     /// Coroutine to smoothly fade out the movement SFX.
     /// </summary>
-    private IEnumerator FadeOutMovementSFX()
-    {
-        if (movementAudioSource == null) yield break;
+    // private IEnumerator FadeOutMovementSFX()
+    // {
+    //     if (movementAudioSource == null) yield break;
         
-        float startVolume = movementAudioSource.volume;
-        float elapsed = 0f;
+    //     float startVolume = movementAudioSource.volume;
+    //     float elapsed = 0f;
         
-        while (elapsed < movementSFXFadeOutDuration)
-        {
-            elapsed += Time.deltaTime;
-            float t = elapsed / movementSFXFadeOutDuration;
-            movementAudioSource.volume = Mathf.Lerp(startVolume, 0f, t);
-            yield return null;
-        }
+    //     while (elapsed < movementSFXFadeOutDuration)
+    //     {
+    //         elapsed += Time.deltaTime;
+    //         float t = elapsed / movementSFXFadeOutDuration;
+    //         movementAudioSource.volume = Mathf.Lerp(startVolume, 0f, t);
+    //         yield return null;
+    //     }
         
-        movementAudioSource.Stop();
-        movementAudioSource.volume = originalMovementSFXVolume; // Reset volume for SoundManager
+    //     movementAudioSource.Stop();
+    //     movementAudioSource.volume = originalMovementSFXVolume; // Reset volume for SoundManager
         
-        PlayMovementStopSFX();
+    //     PlayMovementStopSFX();
         
-        movementSFXFadeCoroutine = null;
-    }
+    //     movementSFXFadeCoroutine = null;
+    // }
 
     /// <summary>
     /// Plays the optional stop SFX when movement ends.

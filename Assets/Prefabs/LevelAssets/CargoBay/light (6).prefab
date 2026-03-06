@@ -304,6 +304,10 @@ PrefabInstance:
       propertyPath: m_ConstrainProportionsScale
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: -8020457421623501468, guid: 7fa3347f9d8ee2d47b69ad626f495f1a, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 667b0e5907735e540bf37b3f5cee4529, type: 2}
     - target: {fileID: -5743350618785959237, guid: 7fa3347f9d8ee2d47b69ad626f495f1a, type: 3}
       propertyPath: m_StaticEditorFlags
       value: 2147483647
@@ -320,6 +324,10 @@ PrefabInstance:
       propertyPath: m_StaticEditorFlags
       value: 2147483647
       objectReference: {fileID: 0}
+    - target: {fileID: 7469973971868601538, guid: 7fa3347f9d8ee2d47b69ad626f495f1a, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 368ad758db63c4748b039c256bd1ca27, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects:
