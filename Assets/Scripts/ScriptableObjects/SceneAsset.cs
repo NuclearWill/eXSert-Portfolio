@@ -16,288 +16,30 @@ using Scene = UnityEngine.SceneManagement.Scene;
 [HelpURL("https://docs.google.com/document/d/18pi24ZJ65GG307F6SvKpSoHPs0izxSb6yZ6cfjvYqMQ/edit?pli=1&tab=t.0#bookmark=id.jla7jdxhssmh")]
 public class SceneAsset : ScriptableObject
 {
-    private const string playerSceneName = "PlayerScene"; // The name of the player scene, used for checking if the player is loaded
-    private const string mainMenuSceneName = "MainMenu"; // The name of the main menu scene, used for loading the main menu
-
-    public string sceneName { get => this.name; }
-    public static implicit operator string(SceneAsset asset) => asset.sceneName; // Allow implicit conversion to string for easy use in SceneManager functions
+    // Data-only: expose the ScriptableObject name as the scene name
+    public string SceneName { get => this.name; }
+    public static implicit operator string(SceneAsset asset) => asset.SceneName; // Allow implicit conversion to string for easy use in SceneManager functions
     public static implicit operator SceneAsset(string name) => GetSceneAsset(name); // Allow implicit conversion from string to SceneAsset for easy retrieval
-    public override string ToString() => sceneName;
+    public override string ToString() => SceneName;
 
-    public static bool PlayerLoaded => ((SceneAsset) playerSceneName).IsLoaded();
+    // Forwarders kept for backward compatibility; prefer SceneLoader API.
+    public static bool PlayerLoaded => SceneLoader.PlayerLoaded;
+    public static Action OnSceneReloaded { get => SceneLoader.OnSceneReloaded; internal set => SceneLoader.OnSceneReloaded = value; }
+    public static int LoadedSceneCount => SceneLoader.LoadedSceneCount;
 
-    public static Action OnSceneReloaded { get; internal set; }
-
-    /// <summary>
-    /// Gets the number of currently loaded scenes in the application.
-    /// </summary>
-    public static int LoadedSceneCount => SceneManager.sceneCount;
-
-    #region Loading and Unloading Functions
     /// <summary>
     /// Determines whether the scene specified by <c>sceneName</c> is currently loaded.
     /// </summary>
-    /// <remarks>Use this method to check the loading state of a scene before performing operations that
-    /// require the scene to be present in the scene hierarchy.</remarks>
     /// <returns><see langword="true"/> if the scene is loaded; otherwise, <see langword="false"/>.</returns>
     public bool IsLoaded()
     {
         for (int i = 0; i < SceneManager.sceneCount; i++)
         {
             Scene scene = SceneManager.GetSceneAt(i);
-            if (scene.name == sceneName) return true;
+            if (scene.name == SceneName) return true;
         }
         return false;
     }
-
-    /// <summary>
-    /// Determines whether a scene with the specified name is currently loaded.
-    /// </summary>
-    /// <param name="name">The name of the scene to check. Cannot be <see langword="null"/> or empty.</param>
-    /// <returns><see langword="true"/> if a scene with the specified name is loaded; otherwise, <see langword="false"/>.</returns>
-    public static bool IsLoaded(SceneAsset scene) => scene != null && scene.IsLoaded();
-
-    /// <summary>
-    /// Loads the scene associated with this instance if it is not already loaded, or forces a reload if specified.
-    /// </summary>
-    /// <remarks>The scene is loaded asynchronously in additive mode. Calling this method multiple times with
-    /// <paramref name="forceReload"/> set to <see langword="false"/> will not reload the scene if it is already
-    /// loaded.</remarks>
-    /// <param name="forceReload"><see langword="true"/> to reload the scene even if it is already loaded; <see langword="false"/> to load the
-    /// scene only if it is not loaded.</param>
-    public SceneAsset Load(bool forceReload = false)
-    {
-        if (forceReload) OnSceneReloaded?.Invoke();
-
-        // If the scene is already loaded and forceReload is true,
-        // unload the scene first before loading it again.
-        if (IsLoaded() && forceReload) Unload();
-
-        if (!IsLoaded() || forceReload)
-            SceneManager.LoadSceneAsync(sceneName, LoadSceneMode.Additive);
-
-        return this;
-    }
-
-    /// <summary>
-    /// Loads the specified <see cref="SceneAsset"/> into memory.
-    /// </summary>
-    /// <remarks>If the scene is already loaded, setting <paramref name="forceReload"/> to <see
-    /// langword="true"/> will reload it.</remarks>
-    /// <param name="scene">The <see cref="SceneAsset"/> to load. Cannot be <see langword="null"/>.</param>
-    /// <param name="forceReload"><see langword="true"/> to reload the scene even if it is already loaded; otherwise, <see langword="false"/> to
-    /// load only if not already loaded.</param>
-    /// <returns>The loaded <see cref="SceneAsset"/> instance, or <see langword="null"/> if <paramref name="scene"/> is <see
-    /// langword="null"/>.</returns>
-    public static SceneAsset Load(SceneAsset scene, bool forceReload = false)
-    {
-        Debug.Log($"[Scene Loader] Request to load scene '{scene}' with forceReload={forceReload}. Current loaded scenes: {LoadedSceneCount}.");
-        if (scene == null)
-        {
-            Debug.LogError("Cannot load a null SceneAsset.");
-            return null;
-        }
-        return scene.Load(forceReload);
-    }
-
-    /// <summary>
-    /// Loads the specified scene asset into the game as the initial scene.
-    /// </summary>
-    /// <remarks>The scene is loaded additively, allowing additional scenes to be loaded without unloading
-    /// existing ones. After the initial scene has finished loading, the player scene is automatically loaded.</remarks>
-    /// <param name="firstScene">The <see cref="SceneAsset"/> representing the first scene to load. Must not be <see langword="null"/>.</param>
-    public static void LoadIntoGame(SceneAsset firstScene)
-    {
-        if (firstScene == null)
-        {
-            Debug.LogError("Cannot load a null SceneAsset into the game.");
-            return;
-        }
-
-        // Load the first scene additively to ensure the game is running before loading additional scenes
-        SceneManager.LoadSceneAsync(firstScene.sceneName, LoadSceneMode.Additive).completed += _ =>
-        {
-            // Loads the player scene after the first scene has finished loading.
-            LoadPlayerScene(characterStartInactive: false).completed += __ => Unload(mainMenuSceneName);
-        };
-    }
-
-    /// <summary>
-    /// Loads the player scene and positions the player at the specified spawn point.
-    /// </summary>
-    /// <remarks>If the player scene is not already loaded, or if <paramref name="forceReload"/> is <see
-    /// langword="true"/>, the scene is loaded additively. After loading, the player object is moved to the given spawn
-    /// point's position and rotation. Callers can pass <paramref name="onLoaded"/> or subscribe to <see cref="OnPlayerSceneLoaded"/>
-    /// or attach to the returned <see cref="AsyncOperation"/>'s <c>completed</c> to run code after the player scene has finished loading.</remarks>
-    /// <param name="spawnPoint">The <see cref="Transform"/> representing the location and orientation where the player should be placed after
-    /// the scene loads. Cannot be <see langword="null"/>.</param>
-    /// <param name="forceReload">If <see langword="true"/>, forces the player scene to reload even if it is already loaded; otherwise, loads the
-    /// scene only if it is not loaded.</param>
-    /// <param name="characterStartInactive">If <see langword="true"/>, the player GameObject will be set inactive after spawning to allow setup before activation.</param>
-    /// <param name="onLoaded">Optional callback invoked with the player GameObject after the player scene has finished loading (or immediately if already loaded).</param>
-    /// <returns>The AsyncOperation for the load when a load is started; returns <see langword="null"/> if no new scene load was started (scene already loaded and not forced).</returns>
-    public static AsyncOperation LoadPlayerScene(
-        CheckpointBehavior spawnPoint = null, // The checkpoint to use as the player's spawn point.
-        bool forceReload = false, // Whether to force a reload of the player scene
-        bool characterStartInactive = true)  // Whether to disable the player GameObject after loading
-    {
-        // Diagnostic entry log to confirm the method is being invoked at runtime.
-        Debug.Log($"[Scene Loader] LoadPlayerScene CALLED. spawnPoint={(spawnPoint != null ? spawnPoint : "null")}, forceReload={forceReload}, characterStartInactive={characterStartInactive}, LoadedSceneCount={LoadedSceneCount}");
-
-        // Try to get the SceneAsset from resources (implicit operator may return null if missing)
-        var playerSceneAsset = (SceneAsset)playerSceneName;
-
-        // If SceneAsset couldn't be found in Resources, warn but continue using scene name.
-        if (playerSceneAsset == null)
-        {
-            Debug.LogWarning($"[Scene Loader] SceneAsset for '{playerSceneName}' not found in Resources/Scene Assets. Will attempt to load by scene name from Build settings.");
-        }
-
-        // Determine whether the player scene is already loaded.
-        bool isLoaded;
-        try
-        {
-            isLoaded = playerSceneAsset != null ? playerSceneAsset.IsLoaded() : SceneManager.GetSceneByName(playerSceneName).isLoaded;
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"[Scene Loader] Error checking loaded state for '{playerSceneName}': {ex.Message}\n{ex.StackTrace}");
-            // Fallback to false so we attempt a load.
-            isLoaded = false;
-        }
-
-        // If already loaded and we're not forcing a reload, move player immediately and return null.
-        if (isLoaded && !forceReload)
-        {
-            Debug.Log($"[Scene Loader] Player scene '{playerSceneName}' already loaded. Skipping load and applying spawn now.");
-
-            // If a spawnPoint was provided, set it as current checkpoint before moving the player.
-            if (spawnPoint != null)
-                CheckpointBehavior.OverrideCurrentCheckpoint(spawnPoint, false);
-            else
-                Debug.LogWarning("[Scene Loader] No spawn point provided for player scene load. Player will remain at current position.");
-
-            // Try to move player right away (will log if player is missing)
-            CheckpointBehavior.InitialSpawnPlayer();
-
-            // Optionally start player inactive
-            if (characterStartInactive)
-            {
-                var player = Player.PlayerObject;
-                if (player != null)
-                    player.SetActive(false);
-                else
-                    Debug.LogWarning("[Scene Loader] Player object not found when attempting to deactivate after immediate spawn.");
-            }
-
-            return null;
-        }
-
-        Debug.Log($"[Scene Loader] Loading player scene '{playerSceneName}' with forceReload={forceReload}. Current loaded scenes: {LoadedSceneCount}.");
-
-        // Start an additive asynchronous load and return its AsyncOperation so callers can attach to .completed
-        AsyncOperation Operation;
-        try
-        {
-            Operation = SceneManager.LoadSceneAsync(playerSceneName, LoadSceneMode.Additive);
-        }
-        catch (Exception ex)
-        {
-            Debug.LogError($"[Scene Loader] Exception starting async load for '{playerSceneName}': {ex.Message}\n{ex.StackTrace}");
-            return null;
-        }
-
-        Operation.completed += _ =>
-        {
-            Debug.Log($"[Scene Loader] Player scene '{playerSceneName}' load completed callback fired. LoadedSceneCount now: {LoadedSceneCount}.");
-
-            GameObject player = Player.PlayerObject;
-
-            // Player Null Check
-            if (player == null)
-            {
-                Debug.LogError("[Scene Loader] Player object not found in the scene after loading the player scene. " +
-                               "Ensure that the player scene contains a GameObject tagged 'Player' and that SceneAsset points to the correct scene.");
-                return;
-            }
-
-            Debug.Log($"[Scene Loader] Player object found: {player.name}. Moving player to spawn point {(spawnPoint != null ? spawnPoint.name : "null")}.");
-
-            if (spawnPoint != null)
-                CheckpointBehavior.OverrideCurrentCheckpoint(spawnPoint, false);
-            else
-                Debug.LogWarning("[Scene Loader] No spawn point provided for player scene load. Player will be placed at the default position in the player scene.");
-
-            CheckpointBehavior.InitialSpawnPlayer();
-
-            // Optionally start the player inactive, allowing for setup before they become active
-            if (characterStartInactive)
-                player.SetActive(false);
-        };
-
-        return Operation;
-    }
-
-
-    /// <summary>
-    /// Loads the main menu scene, unloading all currently loaded scenes first.
-    /// </summary>
-    /// <remarks>This method ensures that any previously loaded scenes are unloaded before loading the main
-    /// menu scene. It is typically used to reset the application state and return the user to the main menu.</remarks>
-    public static void LoadMainMenu()
-    {
-        UnloadAllLoadedScenes();
-        Load(mainMenuSceneName);
-    }
-
-    /// <summary>
-    /// Unloads the scene associated with this instance if it is currently loaded.
-    /// </summary>
-    /// <remarks>If the scene is not loaded, no action is taken and a warning is logged. This method initiates
-    /// an asynchronous unload operation; the scene may not be immediately removed.</remarks>
-    public SceneAsset Unload()
-    {
-        if (IsLoaded()) SceneManager.UnloadSceneAsync(sceneName);
-        else Debug.LogWarning($"Scene '{sceneName}' is not loaded, cannot unload.");
-
-        return this;
-    }
-
-    /// <summary>
-    /// Unloads the specified scene asset and releases its resources.
-    /// </summary>
-    /// <remarks>Use this method to remove a scene asset from memory when it is no longer needed. If <paramref
-    /// name="scene"/> is <see langword="null"/>, the method logs an error and returns <see langword="null"/>.</remarks>
-    /// <param name="scene">The <see cref="SceneAsset"/> to unload. Cannot be <see langword="null"/>.</param>
-    /// <returns>The unloaded <see cref="SceneAsset"/> instance, or <see langword="null"/> if <paramref name="scene"/> is <see
-    /// langword="null"/>.</returns>
-    public static SceneAsset Unload(SceneAsset scene)
-    {
-        if (scene == null)
-        {
-            Debug.LogError("Cannot unload a null SceneAsset.");
-            return null;
-        }
-
-        return scene.Unload();
-    }
-
-    /// <summary>
-    /// Unloads all currently loaded scenes except for the player scene.
-    /// </summary>
-    /// <remarks>This method asynchronously unloads every loaded scene except the one identified as the player
-    /// scene.  Use this method to reset the scene state or transition to a new set of scenes while preserving the
-    /// player scene.</remarks>
-    public static void UnloadAllLoadedScenes()
-    {
-        for (int i = 0; i < SceneManager.sceneCount; i++)
-        {
-            Scene scene = SceneManager.GetSceneAt(i);
-            if (scene.name != playerSceneName) // Ensure the player scene is not unloaded
-                SceneManager.UnloadSceneAsync(scene);
-        }
-    }
-    #endregion
 
     #region GetSceneAsset Functions
     /*

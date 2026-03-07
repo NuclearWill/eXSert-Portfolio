@@ -68,9 +68,9 @@ namespace Progression.Checkpoints
             
             if (RELOAD_SCENE_ON_RESPAWN)
             {
-                SceneAsset.OnSceneReloaded += MovePlayerToCheckpoint; // Subscribe to the scene reloaded event to move the player after reload completes
+                SceneLoader.OnSceneReloaded += MovePlayerToCheckpoint; // Subscribe to the scene reloaded event to move the player after reload completes
                 // Reload the current scene to reset everything, then move the player to the checkpoint after reload
-                SceneAsset.Load(SceneAsset.GetSceneAssetOfObject(currentCheckpoint.gameObject), forceReload: true);
+                SceneLoader.Load(SceneAsset.GetSceneAssetOfObject(currentCheckpoint.gameObject), forceReload: true);
             }
             else
             {
@@ -91,7 +91,7 @@ namespace Progression.Checkpoints
 
             PlayerObject.transform.SetPositionAndRotation(currentCheckpoint.GetSpawnPosition(), currentCheckpoint.GetSpawnRotation());
             
-            SceneAsset.OnSceneReloaded -= MovePlayerToCheckpoint; // Unsubscribe after moving the player
+            SceneLoader.OnSceneReloaded -= MovePlayerToCheckpoint; // Unsubscribe after moving the player
         }
 
         private void TriggerCheckpoint()
