@@ -184,7 +184,7 @@ public class SaveSlotsMenu : Menu
         for (int i = 0; i < SceneManager.sceneCount; i++)
         {
             Scene loadedScene = SceneManager.GetSceneAt(i);
-            if (string.Equals(loadedScene.name, scene.sceneName, System.StringComparison.InvariantCultureIgnoreCase))
+            if (string.Equals(loadedScene.name, scene.SceneName, System.StringComparison.InvariantCultureIgnoreCase))
             {
                 return true;
             }
