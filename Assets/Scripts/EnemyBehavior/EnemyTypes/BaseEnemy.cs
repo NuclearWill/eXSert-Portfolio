@@ -1146,7 +1146,7 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
         // Ensure we have an audio source (lazy initialization)
         EnsureAudioSource();
         
-        if (movementAudioSource == null) return;
+        if (movementAudioSource == null || PauseManager.IsPaused) return;
         
         movementAudioSource.clip = movementSFXClip;
         movementAudioSource.volume = SoundManager.Instance.sfxSource.volume * movementSFXVolume;
