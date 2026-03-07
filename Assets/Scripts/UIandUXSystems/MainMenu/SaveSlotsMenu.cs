@@ -144,6 +144,8 @@ public class SaveSlotsMenu : Menu
 
         DataPersistenceManager.ChangeSelectedProfileId(selectedProfileId);
 
+        LoadMusicScene();
+
         if (isLoadingGame) LoadGame();
         else StartNewGame();
     }
@@ -154,7 +156,7 @@ public class SaveSlotsMenu : Menu
 
         // Potentially consider adding the ability to reset progress here
 
-        SceneLoader.LoadIntoGame(firstLevel);
+        SceneLoader.LoadIntoGame(firstLevel, newGame: true);
     }
 
     private void LoadGame()
@@ -172,14 +174,42 @@ public class SaveSlotsMenu : Menu
 
         savedScene = ResolveLoadableSceneOrFallback(savedScene, firstLevel);
 
-        SceneLoader.LoadIntoGame(savedScene);
+        SceneLoader.LoadIntoGame(savedScene, newGame: false);
+    }
+
+    private bool IsLoaded(SceneAsset scene)
+    {
+        if (scene == null) return false;
+
+        for (int i = 0; i < SceneManager.sceneCount; i++)
+        {
+            Scene loadedScene = SceneManager.GetSceneAt(i);
+            if (string.Equals(loadedScene.name, scene.SceneName, System.StringComparison.InvariantCultureIgnoreCase))
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void LoadMusicScene()
+    {
+        SceneAsset musicScene = SceneAsset.GetSceneAsset("MusicScene");
+        if (musicScene != null && !IsLoaded(musicScene))
+        {
+            SceneManager.LoadScene(musicScene.SceneName, LoadSceneMode.Additive);
+        }
+        else
+        {
+            Debug.LogError("MusicScene could not be loaded. Check that it exists and is included in the build settings.");
+        }
     }
 
     private static SceneAsset ResolveLoadableSceneOrFallback(SceneAsset scene, SceneAsset fallbackScene)
     {
-        if (scene != null && Application.CanStreamedLevelBeLoaded(scene)) return scene;
+        if (scene != null && Application.CanStreamedLevelBeLoaded(scene.SceneName)) return scene;
 
-        if (fallbackScene != null && Application.CanStreamedLevelBeLoaded(fallbackScene)) return fallbackScene;
+        if (fallbackScene != null && Application.CanStreamedLevelBeLoaded(fallbackScene.SceneName)) return fallbackScene;
 
         Debug.LogError($"Neither the saved scene '{scene}' nor the fallback scene '{fallbackScene}' could be loaded. Check that they are included in the build settings and that the saved scene name is correct.");
         return null;
