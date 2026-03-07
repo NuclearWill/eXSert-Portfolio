@@ -412,6 +412,10 @@ namespace EnemyBehavior.Boss.Cleanser
         {
             RegisterWithAttackQueue();
             
+            // Subscribe to pause events for audio handling
+            PauseManager.OnPaused += OnGamePaused;
+            PauseManager.OnResumed += OnGameResumed;
+            
             if (mainLoopCoroutine != null)
                 StopCoroutine(mainLoopCoroutine);
             mainLoopCoroutine = StartCoroutine(MainCombatLoop());
@@ -420,6 +424,10 @@ namespace EnemyBehavior.Boss.Cleanser
         private void OnDisable()
         {
             UnregisterFromAttackQueue();
+            
+            // Unsubscribe from pause events
+            PauseManager.OnPaused -= OnGamePaused;
+            PauseManager.OnResumed -= OnGameResumed;
             
             if (mainLoopCoroutine != null)
             {
@@ -444,6 +452,28 @@ namespace EnemyBehavior.Boss.Cleanser
             {
                 UpdateAggressionBasedSpeed();
                 UpdatePlayerGuardingAggression();
+            }
+        }
+        
+        /// <summary>
+        /// Called when the game is paused. Pauses audio sources.
+        /// </summary>
+        private void OnGamePaused()
+        {
+            if (sfxSource != null && sfxSource.isPlaying)
+            {
+                sfxSource.Pause();
+            }
+        }
+        
+        /// <summary>
+        /// Called when the game is resumed. Resumes audio sources.
+        /// </summary>
+        private void OnGameResumed()
+        {
+            if (sfxSource != null)
+            {
+                sfxSource.UnPause();
             }
         }
 
