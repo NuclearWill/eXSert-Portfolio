@@ -8,5 +8,17 @@ public class LoadScreen : Singleton<LoadScreen>
 {
     [SerializeField] GameObject loadScreenPrefab;
 
+    private GameObject loadScren;
+
+    public static bool IsActive => Instance.loadScreenPrefab.activeSelf;
+
+    protected override void Awake()
+    {
+        base.Awake();
+
+        loadScren = Instantiate(loadScreenPrefab);
+
+        loadScreenPrefab.SetActive(false); // Ensure the load screen is hidden at the start
+    }
 
 }
