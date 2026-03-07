@@ -88,7 +88,7 @@ public static class SceneLoader
     */
 
     /// <summary>Load the first gameplay scene then the player scene.</summary>
-    public static void LoadIntoGame(SceneAsset firstScene)
+    public static void LoadIntoGame(SceneAsset firstScene, bool newGame = false)
     {
         if (firstScene == null)
         {
@@ -100,8 +100,11 @@ public static class SceneLoader
         {
             LoadPlayerScene().completed += static __ =>
             {
-                Player.SpawnPlayerAtCheckpoint();
                 Unload(MAIN_MENU_SCENE);
+
+                Player.SpawnPlayerAtCheckpoint();
+
+                CutsceneManager.PlayCutscene(Cutscene.GetCutscene("Opening Cutscene"));
             };
         };
 
