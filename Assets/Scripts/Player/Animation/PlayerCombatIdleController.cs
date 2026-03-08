@@ -34,7 +34,7 @@ public class PlayerCombatIdleController : MonoBehaviour
     [Header("Timing")]
     [SerializeField]
     [Tooltip("Seconds the player stays flagged as in combat after an attack or taking damage.")]
-    private float combatDuration = 10f;
+    private float combatDuration = 5f;
 
 
 
