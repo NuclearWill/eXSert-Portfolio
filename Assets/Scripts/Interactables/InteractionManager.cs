@@ -50,6 +50,11 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
     {
         if (_interactInputAction != null)
             _interactInputAction.action.performed -= OnInteract;
+
+        if (isPlayerNearby && InteractionUI.Instance != null)
+            InteractionUI.Instance.HideInteractPrompt();
+
+        isPlayerNearby = false;
     }
 
     private void Start()
@@ -62,13 +67,7 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
         Scene scene = SceneManager.GetSceneByName(sceneName);
         if (scene.isLoaded)
         {
-            if (InteractionUI.Instance != null)
-            {
-                if (InteractionUI.Instance._interactText != null)
-                    InteractionUI.Instance._interactText.gameObject.SetActive(false);
-                if (InteractionUI.Instance._interactIcon != null)
-                    InteractionUI.Instance._interactIcon.gameObject.SetActive(false);
-            }
+            InteractionUI.Instance?.HideInteractPrompt();
         }
         else 
         {
@@ -96,11 +95,7 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
 
         interactable.gameObject.SetActive(false);
 
-        if (InteractionUI.Instance._interactIcon != null)
-            InteractionUI.Instance._interactIcon.gameObject.SetActive(false);
-
-        if (InteractionUI.Instance._interactText != null)
-            InteractionUI.Instance._interactText.gameObject.SetActive(false);
+        InteractionUI.Instance?.HideInteractPrompt();
     }
 
     private void OnInteract(InputAction.CallbackContext context)
@@ -170,11 +165,7 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
 
         isPlayerNearby = false;
 
-        if (InteractionUI.Instance._interactText != null)
-            InteractionUI.Instance._interactText.gameObject.SetActive(false);
-
-        if (InteractionUI.Instance._interactIcon != null)
-            InteractionUI.Instance._interactIcon.gameObject.SetActive(false);
+        InteractionUI.Instance?.HideInteractPrompt();
     }
 
     private void OnDrawGizmos()

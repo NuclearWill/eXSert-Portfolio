@@ -1,13 +1,12 @@
 using System.Collections;
 using UI.Loading;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 public class TempBossSceneTransitionInteractable : UnlockableInteraction
 {
     [Header("Scenes")]
-    [SerializeField] private string sceneToLoad = "FinalBoss";
-    [SerializeField] private string sceneToUnload = "Conservatory";
+    [SerializeField] private SceneAsset sceneToLoad;
+    [SerializeField] private SceneAsset sceneToUnload;
     [SerializeField] private bool pauseDuringLoading = true;
 
     private bool isTransitioning;
@@ -17,18 +16,13 @@ public class TempBossSceneTransitionInteractable : UnlockableInteraction
         if (isTransitioning)
             return;
 
+        InteractionUI.Instance?.HideInteractPrompt();
         isTransitioning = true;
         var routine = TransitionRoutine();
 
         if (LoadingScreenController.HasInstance)
         {
-            LoadingScreenController.Instance.BeginLoading(routine, pauseDuringLoading);
-            return;
-        }
-
-        if (SceneLoader.Instance != null)
-        {
-            SceneLoader.Instance.StartCoroutine(routine);
+            LoadingScreenController.BeginLoading(routine, pauseDuringLoading);
             return;
         }
 
@@ -37,32 +31,14 @@ public class TempBossSceneTransitionInteractable : UnlockableInteraction
 
     private IEnumerator TransitionRoutine()
     {
-        if (!string.IsNullOrWhiteSpace(sceneToLoad))
+        if (sceneToLoad != null)
         {
-            var loadScene = SceneManager.GetSceneByName(sceneToLoad);
-            if (!loadScene.isLoaded)
-            {
-                var loadOp = SceneManager.LoadSceneAsync(sceneToLoad, LoadSceneMode.Additive);
-                if (loadOp != null)
-                {
-                    while (!loadOp.isDone)
-                        yield return null;
-                }
-            }
+            yield return SceneLoader.LoadCoroutine(sceneToLoad, loadScreen: false);
         }
 
-        if (!string.IsNullOrWhiteSpace(sceneToUnload))
+        if (sceneToUnload != null)
         {
-            var unloadScene = SceneManager.GetSceneByName(sceneToUnload);
-            if (unloadScene.IsValid() && unloadScene.isLoaded)
-            {
-                var unloadOp = SceneManager.UnloadSceneAsync(unloadScene);
-                if (unloadOp != null)
-                {
-                    while (!unloadOp.isDone)
-                        yield return null;
-                }
-            }
+            yield return SceneLoader.UnloadCoroutine(sceneToUnload);
         }
     }
 }

@@ -10,7 +10,7 @@ public class MainMenuCheatLoader : MonoBehaviour
     private class CheatEntry
     {
         public KeyCode key = KeyCode.Alpha1;
-        public string sceneName = "";
+        public SceneAsset scene;
         public string spawnPointId = "default";
     }
 
@@ -27,10 +27,10 @@ public class MainMenuCheatLoader : MonoBehaviour
     [Header("Cheat Targets")]
     [SerializeField] private List<CheatEntry> entries = new()
     {
-        new CheatEntry { key = KeyCode.Alpha1, sceneName = "CargoBay", spawnPointId = "default" },
-        new CheatEntry { key = KeyCode.Alpha2, sceneName = "CrewQuarters", spawnPointId = "default" },
-        new CheatEntry { key = KeyCode.Alpha3, sceneName = "Hangar", spawnPointId = "default" },
-        new CheatEntry { key = KeyCode.Alpha4, sceneName = "FinalBoss", spawnPointId = "default" }
+        new CheatEntry { key = KeyCode.Alpha1, scene = null, spawnPointId = "default" },
+        new CheatEntry { key = KeyCode.Alpha2, scene = null, spawnPointId = "default" },
+        new CheatEntry { key = KeyCode.Alpha3, scene = null, spawnPointId = "default" },
+        new CheatEntry { key = KeyCode.Alpha4, scene = null, spawnPointId = "default" }
     };
 
     private float _nextDebugStatusTime;
@@ -61,13 +61,13 @@ public class MainMenuCheatLoader : MonoBehaviour
 
         foreach (var entry in entries)
         {
-            if (entry == null || string.IsNullOrWhiteSpace(entry.sceneName))
+            if (entry == null || entry.scene == null)
                 continue;
 
             if (IsKeyPressedThisFrame(keyboard, entry.key))
             {
                 if (debugLogging)
-                    Debug.Log($"[MainMenuCheatLoader] Triggered {entry.key}: loading '{entry.sceneName}' (spawn '{entry.spawnPointId}')", this);
+                    Debug.Log($"[MainMenuCheatLoader] Triggered {entry.key}: loading '{entry.scene.SceneName}' (spawn '{entry.spawnPointId}')", this);
                 LoadTarget(entry);
                 return;
             }
@@ -84,24 +84,20 @@ public class MainMenuCheatLoader : MonoBehaviour
 
     private void LoadTarget(CheatEntry entry)
     {
-        if (!Application.CanStreamedLevelBeLoaded(entry.sceneName))
+        if (entry == null || entry.scene == null)
         {
-            Debug.LogError($"[MainMenuCheatLoader] Scene '{entry.sceneName}' cannot be loaded. Verify the scene name matches exactly and that it is added to Build Settings.", this);
+            Debug.LogError("[MainMenuCheatLoader] Cannot load a cheat target because no SceneAsset is assigned.", this);
             return;
         }
 
-        if (SceneLoader.Instance != null)
+        if (!Application.CanStreamedLevelBeLoaded(entry.scene.SceneName))
         {
-            SceneLoader.Instance.LoadInitialGameScene(
-                entry.sceneName,
-                additiveSceneName: null,
-                pauseUntilLoaded: false,
-                spawnPointIdOverride: entry.spawnPointId,
-                updateCheckpointAfterLoad: false);
+            Debug.LogError($"[MainMenuCheatLoader] Scene '{entry.scene.SceneName}' cannot be loaded. Verify the SceneAsset points to a scene included in Build Settings.", this);
             return;
         }
 
-        SceneManager.LoadScene(entry.sceneName, LoadSceneMode.Single);
+        DataPersistenceManager.SetDebugStartupTarget(entry.scene, entry.spawnPointId);
+        SceneLoader.LoadIntoGame(entry.scene, newGame: false);
     }
 
     private static bool IsKeyPressedThisFrame(Keyboard keyboard, KeyCode key)
