@@ -155,6 +155,32 @@ public class DataPersistenceManager : Singleton<DataPersistenceManager>
         fileDataHandler.Save(gameData, selectedProfileId);
     }
 
+    public static void SetDebugStartupTarget(SceneAsset scene, string spawnPointId = "default")
+    {
+        if (scene == null)
+        {
+            Debug.LogError("[DataPersistenceManager] Cannot set debug startup target because scene is null.");
+            return;
+        }
+
+        gameData ??= new GameData();
+
+        string resolvedSpawnPointId = string.IsNullOrWhiteSpace(spawnPointId) ? "default" : spawnPointId;
+        gameData.currentSceneName = scene.SceneName;
+        gameData.currentSpawnPointID = resolvedSpawnPointId;
+        gameData.lastSavedScene = scene.SceneName;
+        gameData.lastUpdated = System.DateTime.Now.ToBinary();
+        lastSavedScene = scene;
+
+        if (Instance == null || Instance.disableDataPersistence || fileDataHandler == null)
+            return;
+
+        if (string.IsNullOrWhiteSpace(selectedProfileId))
+            selectedProfileId = "debug";
+
+        fileDataHandler.Save(gameData, selectedProfileId);
+    }
+
     /// <summary>
     /// Returns the last saved scene for the currently-selected profile (or empty string if none).
     /// </summary>
