@@ -16,43 +16,83 @@ public class DoorInteractions : UnlockableInteraction
     [Tooltip("Place the gameObject with the DoorHandler component here, it may be on a different object or the same object as this script.")]
     [SerializeField] private List<DoorHandler> doorHandlers;
 
+    [Header("Interaction")]
+    [SerializeField] private bool onlyInteractableOnce = false;
+    [SerializeField] private string lockedInteractionPrompt = "LOCKED";
+
     [Header("Camera")]
     [SerializeField] private bool usePuzzleCameraOnInteraction = false;
     [SerializeField, Tooltip("Optional Cinemachine camera to use for the puzzle interaction.")]
     private CinemachineCamera puzzleCinemachineCamera;
-    [SerializeField, Tooltip("Optional regular Camera to use for the puzzle interaction.")]
-    private Camera puzzleStandardCamera;
     [SerializeField, Min(0f)] private float puzzleCameraDurationSeconds = 2f;
 
     private Coroutine puzzleCameraRoutine;
     private int cachedPuzzleCameraPriority;
-    private bool cachedStandardCameraEnabled;
-    private bool cachedStandardCameraGameObjectActive;
+    private bool hasInteracted;
+
+    public void EnableInteraction()
+    {
+        enabled = true;
+    }
+
+    public void DisableInteraction()
+    {
+        enabled = false;
+    }
+
+    public void SetInteractionEnabled(bool isEnabled)
+    {
+        enabled = isEnabled;
+    }
+
+    protected override void OnTriggerEnter(Collider other)
+    {
+        base.OnTriggerEnter(other);
+
+        if (!other.transform.root.CompareTag("Player"))
+            return;
+
+        if (needsItem && !canUnlock && InteractionUI.Instance != null && InteractionUI.Instance._interactText != null)
+        {
+            InteractionUI.Instance._interactText.text = string.IsNullOrWhiteSpace(lockedInteractionPrompt)
+                ? "LOCKED"
+                : lockedInteractionPrompt;
+        }
+    }
 
     protected override void ExecuteInteraction()
     {
+        if (onlyInteractableOnce && hasInteracted)
+            return;
+
         if (usePuzzleCameraOnInteraction)
             BeginTemporaryPuzzleCamera();
+
+        bool executedInteraction = false;
 
         foreach (DoorHandler doorHandler in doorHandlers)
         {
             if (doorHandler != null)
             {
                 if (doorHandler.doorLockState == DoorHandler.DoorLockState.Locked)
-                {
-                    doorHandler.doorLockState = DoorHandler.DoorLockState.Unlocked;
-                    doorHandler.DoorHandlerCoroutines();
-                }
+                    doorHandler.UnlockDoor();
                 
 
                 doorHandler.Interact();
+                executedInteraction = true;
             }
+        }
+
+        if (onlyInteractableOnce && executedInteraction)
+        {
+            hasInteracted = true;
+            enabled = false;
         }
     }
 
     private void BeginTemporaryPuzzleCamera()
     {
-        if (puzzleCinemachineCamera == null && puzzleStandardCamera == null)
+        if (puzzleCinemachineCamera == null)
         {
             Debug.LogWarning("[DoorInteractions] 'Use puzzle camera on interaction' is enabled but no puzzle camera is assigned.");
             return;
@@ -66,37 +106,14 @@ public class DoorInteractions : UnlockableInteraction
 
     private IEnumerator PuzzleCameraRoutine()
     {
-        if (puzzleCinemachineCamera != null)
-        {
-            cachedPuzzleCameraPriority = puzzleCinemachineCamera.Priority;
-            puzzleCinemachineCamera.Priority = 21;
-        }
-        else if (puzzleStandardCamera != null)
-        {
-            cachedStandardCameraGameObjectActive = puzzleStandardCamera.gameObject.activeSelf;
-            cachedStandardCameraEnabled = puzzleStandardCamera.enabled;
-
-            if (!puzzleStandardCamera.gameObject.activeSelf)
-                puzzleStandardCamera.gameObject.SetActive(true);
-
-            puzzleStandardCamera.enabled = true;
-        }
+        cachedPuzzleCameraPriority = puzzleCinemachineCamera.Priority;
+        puzzleCinemachineCamera.Priority = 21;
 
         float duration = Mathf.Max(0f, puzzleCameraDurationSeconds);
         if (duration > 0f)
             yield return new WaitForSeconds(duration);
 
-        if (puzzleCinemachineCamera != null)
-        {
-            puzzleCinemachineCamera.Priority = cachedPuzzleCameraPriority;
-        }
-        else if (puzzleStandardCamera != null)
-        {
-            puzzleStandardCamera.enabled = cachedStandardCameraEnabled;
-
-            if (puzzleStandardCamera.gameObject.activeSelf != cachedStandardCameraGameObjectActive)
-                puzzleStandardCamera.gameObject.SetActive(cachedStandardCameraGameObjectActive);
-        }
+        puzzleCinemachineCamera.Priority = cachedPuzzleCameraPriority;
 
         puzzleCameraRoutine = null;
     }
