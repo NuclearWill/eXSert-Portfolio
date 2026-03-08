@@ -172,6 +172,25 @@ public class DoorHandler : MonoBehaviour
         yield break;
     }
 
+    public void UnlockDoor()
+    {
+        if (doorLockState == DoorLockState.Unlocked)
+            return;
+
+        doorLockState = DoorLockState.Unlocked;
+        DoorHandlerCoroutines();
+    }
+
+    public void LockDoor()
+    {
+        if (doorLockState == DoorLockState.Locked)
+            return;
+
+        StopAllCoroutines();
+        doorLockState = DoorLockState.Locked;
+        ApplyDoorLightState(lockedLightBulbColor, lockedLightBulbEmissionColor, lockedLightColor);
+    }
+
     private void StartingLightColor()
     {
         if (DoorLockState.Locked == doorLockState)

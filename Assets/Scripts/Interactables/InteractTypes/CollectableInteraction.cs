@@ -23,6 +23,7 @@ public abstract class CollectableInteraction : InteractionManager
     {
 
         ExecuteInteraction();
+        AfterExecuteInteraction();
 
         StartCoroutine(FadeInAndFadeOutUI(uiFadeDuration, uiDisplayDuration));
         StartCoroutine(DeactivateInteractableCoroutine(this));
@@ -30,6 +31,7 @@ public abstract class CollectableInteraction : InteractionManager
             SoundManager.Instance.sfxSource.PlayOneShot(_interactionSFX);
     }
     protected abstract void ExecuteInteraction();
+    protected virtual void AfterExecuteInteraction() { }
 
     private IEnumerator DeactivateInteractableCoroutine(CollectableInteraction interaction)
     {
