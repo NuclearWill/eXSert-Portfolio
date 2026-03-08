@@ -5574,6 +5574,11 @@ MonoBehaviour:
   cameraSnapTime: 0.1
   cameraManager: {fileID: 5480205498155007657}
   rotatePlayerIfCameraDisabled: 0
+  maxHorizontalLeanAngle: 10
+  maxVerticalLeanAngle: 15
+  invertVerticalLean: 0
+  leanResponseSpeed: 2
+  leanReturnTime: 0.15
 --- !u!1 &2525516429101545011
 GameObject:
   m_ObjectHideFlags: 0
