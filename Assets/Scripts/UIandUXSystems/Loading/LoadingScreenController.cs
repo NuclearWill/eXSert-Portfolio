@@ -75,6 +75,23 @@ namespace UI.Loading
         /// </summary>
         public static void BeginLoading(IEnumerator loadSteps, bool pauseGame = true, float? minimumDisplayOverride = null)
         {
+#if UNITY_EDITOR
+            Debug.Log($"[LoadingScreen][Editor Trace] BeginLoading called. Suppressed={SceneLoader.IsLoadingScreenSuppressed}, PauseGame={pauseGame}. Stack:\n{Environment.StackTrace}");
+#endif
+
+            if (SceneLoader.IsLoadingScreenSuppressed)
+            {
+                if (loadSteps != null)
+                {
+                    if (Instance != null && Instance.isActiveAndEnabled)
+                        Instance.StartCoroutine(loadSteps);
+                    else
+                        CoroutineRunner.Run(loadSteps);
+                }
+
+                return;
+            }
+
             if (Instance == null)
             {
                 Debug.LogWarning("[LoadingScreen] No LoadingScreenController instance available. Loading will proceed without overlay.");

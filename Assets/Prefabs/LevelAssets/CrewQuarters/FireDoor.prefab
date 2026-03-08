@@ -50,19 +50,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 172d7939803324443ac613ca63aa457c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoorHandler
-  currentDoorState: 0
+  currentDoorState: 1
   doorLockState: 0
   doorType: 0
-  canGoBothWays: 0
   doorParts:
   - partObject: {fileID: 4442819524760390947}
     moveX: 0
     moveY: 1
     moveZ: 0
-    distToOpenParts: 1.45
+    distToOpenParts: 3.33
     closedLocalPosition: {x: 0, y: 0, z: 0}
-  openSpeed: 2
-  isPlayerInside: 0
+  openSpeed: 0.4
   hingePivot: {fileID: 0}
   lightBulb: {fileID: 0}
   lockedLightBulbColor: {r: 0, g: 0, b: 0, a: 0}
@@ -197,7 +195,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2533406887573032968, guid: d10bc1ec0c14f8c43a9a8375f4ccbffe, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -3.607
+      value: -3.6
       objectReference: {fileID: 0}
     - target: {fileID: 2533406887573032968, guid: d10bc1ec0c14f8c43a9a8375f4ccbffe, type: 3}
       propertyPath: m_LocalPosition.z

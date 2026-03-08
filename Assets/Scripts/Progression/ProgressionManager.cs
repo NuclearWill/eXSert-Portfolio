@@ -8,6 +8,7 @@
 */
 
 using Singletons;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UIandUXSystems.HUD;
@@ -46,6 +47,7 @@ namespace Progression
          * It will also move the player to the first checkpoint's spawn point.
          */
         private static bool IsolatedLoad = true; // If the scene is being loaded by itself or not
+        private string editorBootstrapLoadingScreenSuppressionId;
 #endif
 
         /// <summary>
@@ -69,13 +71,18 @@ namespace Progression
         {
             base.Awake(); // Singleton behavior
 
+#if UNITY_EDITOR
+            if (ShouldSuppressLoadingScreenForEditorBootstrap())
+                editorBootstrapLoadingScreenSuppressionId = SceneLoader.RequestLoadingScreenSuppression(SceneLoader.EditorBootstrapLoadingScreenOwnerId);
+#endif
+
             this.gameObject.name = $"[{SceneAsset.GetSceneAssetOfObject(this.gameObject)}] Progression Manager";
 
             encounterCompletionMap.Clear();
             loadZones.Clear();
             checkpoints.Clear();
 
-            CheckpointBehavior.OverrideCurrentCheckpoint(firstCheckpoint);
+            CheckpointBehavior.OverrideCurrentCheckpoint(firstCheckpoint, overrideIfNull: false);
 
             if (usePrewarmer) PrewarmEnemies();
         }
@@ -86,21 +93,57 @@ namespace Progression
             // Automatically load the player scene while playing the level in editor.
             // This makes testing easier since you can just hit play on the level scene by itself
             // Without needing to manually adjust the player scene
-            if (IsolatedLoad && SceneAsset.LoadedSceneCount == 1 && !SceneAsset.PlayerLoaded)
+            if (ShouldSuppressLoadingScreenForEditorBootstrap())
             {
                 // Ensure the SceneLoader is initialized so that it can properly load the player scene
-                SceneLoader.Initialize(); 
-                SceneLoader.LoadPlayerScene().completed += _ =>
+                SceneLoader.Initialize();
+                AsyncOperation playerLoad = SceneLoader.LoadPlayerScene();
+                if (playerLoad == null)
                 {
-                    Player.SpawnPlayerAtCheckpoint();
-                };
+                    ReleaseEditorBootstrapLoadingScreenSuppression();
+                }
+                else
+                {
+                    playerLoad.completed += _ =>
+                    {
+                        Player.SpawnPlayerAtCheckpoint();
+                        PlayerHealthBarManager.Instance?.RestoreDesignTimeDefaults();
+                        StartCoroutine(ReleaseEditorBootstrapLoadingScreenSuppressionNextFrame());
+                    };
+                }
             }
             IsolatedLoad = false;
 #endif
         }
 
+#if UNITY_EDITOR
+        private bool ShouldSuppressLoadingScreenForEditorBootstrap()
+        {
+            return IsolatedLoad && SceneAsset.LoadedSceneCount == 1 && !SceneAsset.PlayerLoaded;
+        }
+
+        private IEnumerator ReleaseEditorBootstrapLoadingScreenSuppressionNextFrame()
+        {
+            yield return null;
+            ReleaseEditorBootstrapLoadingScreenSuppression();
+        }
+
+        private void ReleaseEditorBootstrapLoadingScreenSuppression()
+        {
+            if (string.IsNullOrWhiteSpace(editorBootstrapLoadingScreenSuppressionId))
+                return;
+
+            SceneLoader.ReleaseLoadingScreenSuppression(editorBootstrapLoadingScreenSuppressionId);
+            editorBootstrapLoadingScreenSuppressionId = null;
+        }
+#endif
+
         private void OnDisable()
         {
+#if UNITY_EDITOR
+            ReleaseEditorBootstrapLoadingScreenSuppression();
+#endif
+
             foreach (BasicEncounter encounter in encounterCompletionMap)
             {
                 if (encounter != null && !encounter.isCleanedUp)

@@ -11,6 +11,7 @@ using System.Linq;
 using UnityEngine.SceneManagement;
 using System.IO;
 using Singletons;
+using Progression.Checkpoints;
 
 public class DataPersistenceManager : Singleton<DataPersistenceManager>
 
@@ -124,16 +125,31 @@ public class DataPersistenceManager : Singleton<DataPersistenceManager>
     public static void SaveGame()
     {
         if (Instance.disableDataPersistence) return;
+        if (gameData == null) return;
 
         //Goes through each of the found items that needs to be saved and saves them
         foreach (IDataPersistenceManager dataPersistenceObj in dataPersistenceObjects)
             dataPersistenceObj.SaveData(gameData);
 
+        CheckpointBehavior activeCheckpoint = CheckpointBehavior.currentCheckpoint;
+        if (activeCheckpoint != null)
+        {
+            SceneAsset checkpointScene = activeCheckpoint.CheckpointSceneAsset;
+            if (checkpointScene != null)
+            {
+                gameData.currentSceneName = checkpointScene.SceneName;
+                gameData.currentSpawnPointID = activeCheckpoint.CheckpointId;
+                gameData.lastSavedScene = checkpointScene.SceneName;
+            }
+        }
+
         //Saves the current time, converts to binary, and assigns the data to gameData
         gameData.lastUpdated = System.DateTime.Now.ToBinary();
 
-        // Record the active scene as the last saved scene for the current profile
-        gameData.lastSavedScene = SceneManager.GetActiveScene().name;
+        // Prefer the checkpoint scene saved by gameplay systems; otherwise fall back to the currently active scene.
+        if (string.IsNullOrEmpty(gameData.lastSavedScene))
+            gameData.lastSavedScene = SceneManager.GetActiveScene().name;
+
         lastSavedScene = gameData.lastSavedScene;
 
         fileDataHandler.Save(gameData, selectedProfileId);

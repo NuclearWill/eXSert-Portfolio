@@ -1379,6 +1379,18 @@ public class PlayerMovement : MonoBehaviour
 
     public bool IsLocomotionAnimationSuppressed => locomotionAnimationSuppressed;
 
+    public bool HasEffectiveMovementInput
+    {
+        get
+        {
+            Vector2 inputMove = ApplyMoveDeadZone(InputReader.MoveInput);
+            if (inputMove.sqrMagnitude > moveInputDeadZone * moveInputDeadZone)
+                return true;
+
+            return inputReleaseTimer < inputReleaseGrace && cachedMoveInput.sqrMagnitude > 0.0001f;
+        }
+    }
+
     public void ForceLocomotionRefresh()
     {
         wasMoving = false;

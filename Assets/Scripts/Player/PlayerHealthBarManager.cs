@@ -96,6 +96,8 @@ public class PlayerHealthBarManager : MonoBehaviour, IHealthSystem, IDataPersist
     private bool deathInputLockOwned;
     private bool suppressNextFlinch;
     private float invincibleUntilUnscaledTime;
+    private float defaultMaxHealth;
+    private float defaultCurrentHealth;
 
     #region Unity MonoBehaviour Functions
     private void Awake()
@@ -110,6 +112,9 @@ public class PlayerHealthBarManager : MonoBehaviour, IHealthSystem, IDataPersist
         {
             currentHealth = Mathf.Clamp(maxHealth * Mathf.Clamp01(startingHealthPercent), 0f, maxHealth);
         }
+
+        defaultMaxHealth = Mathf.Max(1f, maxHealth);
+        defaultCurrentHealth = Mathf.Clamp(currentHealth, 0f, defaultMaxHealth);
 
         NotifyHealthChanged();
         OnPlayerHealthRegistered?.Invoke(this);
@@ -204,6 +209,15 @@ public class PlayerHealthBarManager : MonoBehaviour, IHealthSystem, IDataPersist
         {
             NotifyHealthChanged();
         }
+    }
+
+    public void RestoreDesignTimeDefaults(bool fullHeal = true)
+    {
+        ResetDeathSequenceState();
+        isDead = false;
+        maxHealth = Mathf.Max(1f, defaultMaxHealth);
+        currentHealth = fullHeal ? maxHealth : Mathf.Clamp(defaultCurrentHealth, 0f, maxHealth);
+        NotifyHealthChanged();
     }
 
     private void Revive() => Revive(1f);

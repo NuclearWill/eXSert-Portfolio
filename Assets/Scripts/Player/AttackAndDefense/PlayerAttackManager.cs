@@ -148,13 +148,7 @@ public class PlayerAttackManager : MonoBehaviour
 
     private void Update()
     {
-        if (InputReader.IsGameplayInputBlocked)
-        {
-            ClearBufferedAttack();
-            return;
-        }
-
-        if (CombatManager.isGuarding)
+        if (ShouldIgnoreAttackInput())
         {
             ClearBufferedAttack();
             return;
@@ -184,14 +178,11 @@ public class PlayerAttackManager : MonoBehaviour
 
     private void ProcessAttackInput(bool lightAttack)
     {
-        if (InputReader.IsGameplayInputBlocked)
+        if (ShouldIgnoreAttackInput())
         {
             ClearBufferedAttack();
             return;
         }
-
-        if (CombatManager.isGuarding)
-            return;
 
         if (!InputReader.inputBusy)
         {
@@ -878,7 +869,7 @@ public class PlayerAttackManager : MonoBehaviour
 
     private bool TryConsumeBufferedAttack()
     {
-        if (InputReader.IsGameplayInputBlocked)
+        if (ShouldIgnoreAttackInput())
         {
             ClearBufferedAttack();
             return false;
@@ -906,6 +897,17 @@ public class PlayerAttackManager : MonoBehaviour
     {
         bufferedAttackButton = AttackButton.None;
         bufferedAttackExpiresAt = -1f;
+    }
+
+    private bool ShouldIgnoreAttackInput()
+    {
+        if (InputReader.IsGameplayInputBlocked)
+            return true;
+
+        if (CombatManager.isGuarding || CombatManager.isParrying)
+            return true;
+
+        return animationController != null && animationController.IsParryHardLocked;
     }
 
     public void ForceCancelCurrentAttack(bool resetCombo = true)

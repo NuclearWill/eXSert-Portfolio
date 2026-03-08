@@ -25,8 +25,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1568745724267035674}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: -0.7071068, z: 0, w: 0.7071068}
-  m_LocalPosition: {x: -52.479, y: 0, z: 14.473}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -37,7 +37,7 @@ Transform:
   - {fileID: 4915645725159817667}
   - {fileID: 2687358077990640753}
   m_Father: {fileID: 0}
-  m_LocalEulerAnglesHint: {x: 0, y: -90, z: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &6592956398771044654
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -51,18 +51,16 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DoorHandler
   currentDoorState: 0
-  doorLockState: 0
+  doorLockState: 1
   doorType: 0
-  canGoBothWays: 0
   doorParts:
   - partObject: {fileID: 3314853025781696203}
     moveX: 0
-    moveY: 0
+    moveY: 1
     moveZ: 0
-    distToOpenParts: 1.55
-    closedLocalPosition: {x: 0, y: 0, z: 0}
-  openSpeed: 2
-  isPlayerInside: 0
+    distToOpenParts: 3.323
+    closedLocalPosition: {x: -21.034, y: -3.6, z: -42.054}
+  openSpeed: 0.4
   hingePivot: {fileID: 0}
   lightBulb: {fileID: 0}
   lockedLightBulbColor: {r: 0, g: 0, b: 0, a: 0}
@@ -80,12 +78,16 @@ PrefabInstance:
     m_TransformParent: {fileID: 2150376273715006731}
     m_Modifications:
     - target: {fileID: 2533406887573032968, guid: d10bc1ec0c14f8c43a9a8375f4ccbffe, type: 3}
+      propertyPath: m_LocalScale.x
+      value: 0.82906
+      objectReference: {fileID: 0}
+    - target: {fileID: 2533406887573032968, guid: d10bc1ec0c14f8c43a9a8375f4ccbffe, type: 3}
       propertyPath: m_LocalPosition.x
       value: -21.034
       objectReference: {fileID: 0}
     - target: {fileID: 2533406887573032968, guid: d10bc1ec0c14f8c43a9a8375f4ccbffe, type: 3}
       propertyPath: m_LocalPosition.y
-      value: -3.616
+      value: -3.6
       objectReference: {fileID: 0}
     - target: {fileID: 2533406887573032968, guid: d10bc1ec0c14f8c43a9a8375f4ccbffe, type: 3}
       propertyPath: m_LocalPosition.z

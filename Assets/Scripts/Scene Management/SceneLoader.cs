@@ -2,8 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using UI.Loading;
-using UnityEngine;
 using UnityEngine.SceneManagement;
+using UnityEngine;
+using UnityEngine.Video;
 
 /// <summary>
 /// Centralized static class responsible for scene loading/unloading and player-scene specific behaviors.
@@ -14,9 +15,13 @@ public static class SceneLoader
     private const string PLAYER_SCENE = "PlayerScene"; // The name of the player scene
     private const string MAIN_MENU_SCENE = "MainMenu"; // The name of the main menu scene
     private const string LOADING_SCENE = "LoadingScene";
+    public const string EditorBootstrapLoadingScreenOwnerId = "ProgressionManager.EditorIsolatedLoad";
+    private static readonly HashSet<string> loadingScreenSuppressionOwners = new(StringComparer.Ordinal);
 
     /// <summary>Number of currently loaded scenes.</summary>
     public static int LoadedSceneCount => SceneManager.sceneCount;
+
+    public static bool IsLoadingScreenSuppressed => loadingScreenSuppressionOwners.Count > 0;
 
     /// <summary>Whether the player scene is loaded.</summary>
     public static bool PlayerLoaded
@@ -57,6 +62,47 @@ public static class SceneLoader
         SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
+    public static string RequestLoadingScreenSuppression(string ownerId = null)
+    {
+        string resolvedOwnerId = string.IsNullOrWhiteSpace(ownerId)
+            ? Guid.NewGuid().ToString("N")
+            : ownerId;
+
+        loadingScreenSuppressionOwners.Add(resolvedOwnerId);
+        return resolvedOwnerId;
+    }
+
+    public static void ReleaseLoadingScreenSuppression(string ownerId)
+    {
+        if (string.IsNullOrWhiteSpace(ownerId))
+            return;
+
+        loadingScreenSuppressionOwners.Remove(ownerId);
+    }
+
+#if UNITY_EDITOR
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    private static void SuppressLoadingScreenForEditorIsolatedBootstrap()
+    {
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (!activeScene.IsValid())
+            return;
+
+        string sceneName = activeScene.name;
+        if (string.IsNullOrEmpty(sceneName))
+            return;
+
+        if (sceneName == MAIN_MENU_SCENE || sceneName == LOADING_SCENE || sceneName == PLAYER_SCENE)
+            return;
+
+        if (SceneManager.sceneCount != 1)
+            return;
+
+        RequestLoadingScreenSuppression(EditorBootstrapLoadingScreenOwnerId);
+        Debug.Log($"[Scene Loader][Editor Bootstrap] Suppressing loading screen before scene startup for '{sceneName}'.");
+    }
+#endif
+
     /// <summary>Event invoked when a forced scene reload is requested.</summary>
     public static Action OnSceneReloaded { get; internal set; }
 
@@ -72,8 +118,11 @@ public static class SceneLoader
 
         if (forceReload) OnSceneReloaded?.Invoke();
 
-        if (loadScreen)
+        if (loadScreen && !IsLoadingScreenSuppressed)
         {
+#if UNITY_EDITOR
+            Debug.Log($"[Scene Loader][Editor Trace] Load requested loading screen for scene '{scene.SceneName}'. Stack:\n{Environment.StackTrace}");
+#endif
             if (!SceneAsset.GetSceneAsset("LoadingScene").IsLoaded())
             {
                 AsyncOperation loadingScreenOp = SceneManager.LoadSceneAsync("LoadingScene", LoadSceneMode.Additive);
@@ -121,8 +170,11 @@ public static class SceneLoader
         if (forceReload) OnSceneReloaded?.Invoke();
 
         // Start or ensure loading screen is present and started before loading target scene
-        if (loadScreen)
+        if (loadScreen && !IsLoadingScreenSuppressed)
         {
+    #if UNITY_EDITOR
+            Debug.Log($"[Scene Loader][Editor Trace] Coroutine load requested loading screen for scene '{scene.SceneName}'. Stack:\n{Environment.StackTrace}");
+    #endif
             var loadingSceneAsset = SceneAsset.GetSceneAsset("LoadingScene");
             if (!loadingSceneAsset.IsLoaded())
             {
@@ -196,6 +248,21 @@ public static class SceneLoader
 
     private static IEnumerator LoadIntoGameTransitionRoutine(SceneAsset firstScene, bool newGame)
     {
+        if (newGame)
+        {
+            yield return EnsureLoadingSceneReady();
+
+            VideoClip openingCutscene = Cutscene.GetCutscene("Opening Cutscene");
+            if (openingCutscene != null)
+            {
+                CutsceneManager.PlayCutscene(openingCutscene);
+                yield return LoadIntoGameCoroutine(firstScene, newGame: false);
+                yield break;
+            }
+
+            Debug.LogWarning("[Scene Loader] Opening cutscene is unavailable. Falling back to standard loading-screen startup.");
+        }
+
         yield return EnsureLoadingSceneReady();
 
         if (!LoadingScreenController.HasInstance)
@@ -407,6 +474,10 @@ public static class SceneLoader
     {
         if (LoadingScreenController.HasInstance)
             yield break;
+
+#if UNITY_EDITOR
+        Debug.Log($"[Scene Loader][Editor Trace] EnsureLoadingSceneReady invoked. Stack:\n{Environment.StackTrace}");
+#endif
 
         Scene loadingScene = SceneManager.GetSceneByName(LOADING_SCENE);
         if (!loadingScene.isLoaded)

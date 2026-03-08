@@ -38,6 +38,9 @@ public class DoorPartMovement
 }
 public class DoorHandler : MonoBehaviour
 {
+    private static readonly int BaseColorProperty = Shader.PropertyToID("_BaseColor");
+    private static readonly int LegacyColorProperty = Shader.PropertyToID("_Color");
+    private static readonly int EmissionColorProperty = Shader.PropertyToID("_EmissionColor");
 
     public enum DoorState { Open, Closed }
     public enum DoorLockState { Locked, Unlocked }
@@ -80,17 +83,29 @@ public class DoorHandler : MonoBehaviour
     [Header("Door Light Settings")]
     [Tooltip("Light bulb GameObject to change color")]
     public GameObject lightBulb;
-    [Tooltip("Color of the light bulb when the door is locked")]
-    public Color lockedLightBulbColor;
-    [Tooltip("Color of the light bulb when the door is unlocked")]
-    public Color unlockedLightBulbColor;
+
+    [Tooltip("Base color of the bulb material when the door is locked.")]
+    [ColorUsage(false, true)]
+    public Color lockedLightBulbColor = DefaultLockedBulbBaseColor;
+
+    [Tooltip("Emission color of the bulb material when the door is locked.")]
+    [ColorUsage(true, true)]
+    public Color lockedLightBulbEmissionColor = DefaultLockedBulbEmissionColor;
+
+    [Tooltip("Base color of the bulb material when the door is unlocked.")]
+    [ColorUsage(false, true)]
+    public Color unlockedLightBulbColor = DefaultUnlockedBulbBaseColor;
+
+    [Tooltip("Emission color of the bulb material when the door is unlocked.")]
+    [ColorUsage(true, true)]
+    public Color unlockedLightBulbEmissionColor = DefaultUnlockedBulbEmissionColor;
 
     [Tooltip("Light component on the door to change color")]
     public Light doorLight;
     [Tooltip("Color of the light when the door is locked")]
-    public Color lockedLightColor;
+    public Color lockedLightColor = DefaultLockedPointLightColor;
     [Tooltip("Color of the light when the door is unlocked")]
-    public Color unlockedLightColor;
+    public Color unlockedLightColor = DefaultUnlockedPointLightColor;
 
     [Tooltip("Speed of the light color transition")]
     public float lightFadeSpeed = 2f;
@@ -106,6 +121,13 @@ public class DoorHandler : MonoBehaviour
     // Store original parent to reparent door after using hinge pivot
     private Transform originalParent;
 
+    private static Color DefaultLockedBulbBaseColor => ColorFromHex("A10000");
+    private static Color DefaultLockedBulbEmissionColor => ColorFromHsv(0f, 100f, 38f);
+    private static Color DefaultLockedPointLightColor => ColorFromHex("FF1E1E");
+    private static Color DefaultUnlockedBulbBaseColor => ColorFromHex("1DC814");
+    private static Color DefaultUnlockedBulbEmissionColor => ColorFromHsv(145f, 100f, 13f);
+    private static Color DefaultUnlockedPointLightColor => ColorFromHex("44A659");
+
     private void Awake()
     {
         doorPosOrigin = this.transform.localPosition;
@@ -118,6 +140,12 @@ public class DoorHandler : MonoBehaviour
         }
 
         StartingLightColor();
+    }
+
+    private void OnValidate()
+    {
+        if (!Application.isPlaying)
+            StartingLightColor();
     }
 
     /// <summary>
@@ -148,11 +176,11 @@ public class DoorHandler : MonoBehaviour
     {
         if (DoorLockState.Locked == doorLockState)
         {
-            doorLight.color = lockedLightColor;
+            ApplyDoorLightState(lockedLightBulbColor, lockedLightBulbEmissionColor, lockedLightColor);
         }
         else
         {
-            doorLight.color = unlockedLightColor;
+            ApplyDoorLightState(unlockedLightBulbColor, unlockedLightBulbEmissionColor, unlockedLightColor);
         }
     }
 
@@ -182,32 +210,56 @@ public class DoorHandler : MonoBehaviour
 
     public void DoorHandlerCoroutines()
     {
-        StartCoroutine(FadeLightBulbHDRColor(lockedLightBulbColor, unlockedLightBulbColor, lightFadeSpeed));
+        StartCoroutine(
+            FadeLightBulbColor(
+                lockedLightBulbColor,
+                unlockedLightBulbColor,
+                lockedLightBulbEmissionColor,
+                unlockedLightBulbEmissionColor,
+                lightFadeSpeed
+            )
+        );
         StartCoroutine(FadeColorIntoEachother(lockedLightColor, unlockedLightColor, lightFadeSpeed));
     }
 
-    private IEnumerator FadeLightBulbHDRColor(Color fromColor, Color toColor, float duration)
+    private IEnumerator FadeLightBulbColor(
+        Color fromBaseColor,
+        Color toBaseColor,
+        Color fromEmissionColor,
+        Color toEmissionColor,
+        float duration
+    )
     {
         MeshRenderer meshRenderer = GetLightMeshRenderer();
         if (meshRenderer == null)
             yield break;
 
+        if (duration <= 0f)
+        {
+            ApplyBulbMaterialState(meshRenderer, toBaseColor, toEmissionColor);
+            yield break;
+        }
+
         float elapsed = 0f;
         while (elapsed < duration)
         {
             float t = Mathf.Clamp01(elapsed / duration);
-            Color currentColor = Color.Lerp(fromColor, toColor, t);
-            meshRenderer.material.EnableKeyword("_EMISSION");
-            meshRenderer.material.SetColor("_EmissionColor", currentColor);
+            Color currentBaseColor = Color.Lerp(fromBaseColor, toBaseColor, t);
+            Color currentEmissionColor = Color.Lerp(fromEmissionColor, toEmissionColor, t);
+            ApplyBulbMaterialState(meshRenderer, currentBaseColor, currentEmissionColor);
             elapsed += Time.deltaTime;
             yield return null;
         }
-        meshRenderer.material.SetColor("_EmissionColor", toColor);
+
+        ApplyBulbMaterialState(meshRenderer, toBaseColor, toEmissionColor);
     }
 
     // Fade Color into eachother over time, used for light color transitions when opening/closing and locking/unlocking the door
     private IEnumerator FadeColorIntoEachother(Color fromColor, Color toColor, float duration)
     {
+        if (doorLight == null)
+            yield break;
+
         float elapsed = 0f;
         while (elapsed < duration)
         {
@@ -217,6 +269,59 @@ public class DoorHandler : MonoBehaviour
             yield return null;
         }
         doorLight.color = toColor;
+    }
+
+    private void ApplyDoorLightState(Color bulbBaseColor, Color bulbEmissionColor, Color pointLightColor)
+    {
+        MeshRenderer meshRenderer = GetLightMeshRenderer();
+        if (meshRenderer != null)
+            ApplyBulbMaterialState(meshRenderer, bulbBaseColor, bulbEmissionColor);
+
+        if (doorLight != null)
+            doorLight.color = pointLightColor;
+    }
+
+    private void ApplyBulbMaterialState(MeshRenderer meshRenderer, Color baseColor, Color emissionColor)
+    {
+        if (meshRenderer == null)
+            return;
+
+        Material[] materials = meshRenderer.materials;
+        for (int i = 0; i < materials.Length; i++)
+        {
+            Material material = materials[i];
+            if (material == null)
+                continue;
+
+            if (material.HasProperty(BaseColorProperty))
+                material.SetColor(BaseColorProperty, baseColor);
+
+            if (material.HasProperty(LegacyColorProperty))
+                material.SetColor(LegacyColorProperty, baseColor);
+
+            if (material.HasProperty(EmissionColorProperty))
+            {
+                material.EnableKeyword("_EMISSION");
+                material.SetColor(EmissionColorProperty, emissionColor);
+            }
+        }
+    }
+
+    private static Color ColorFromHex(string hex)
+    {
+        if (UnityEngine.ColorUtility.TryParseHtmlString($"#{hex}", out Color parsedColor))
+            return parsedColor;
+
+        return Color.white;
+    }
+
+    private static Color ColorFromHsv(float hueDegrees, float saturationPercent, float valuePercent, float intensity = 0f)
+    {
+        Color color = Color.HSVToRGB(hueDegrees / 360f, saturationPercent / 100f, valuePercent / 100f);
+        if (!Mathf.Approximately(intensity, 0f))
+            color *= Mathf.Pow(2f, intensity);
+
+        return color;
     }
 
     public void OpenDoor()

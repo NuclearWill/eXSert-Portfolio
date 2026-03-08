@@ -537,7 +537,7 @@ MonoBehaviour:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
-  minimumDisplaySeconds: 1.5
+  minimumDisplaySeconds: 3
 --- !u!114 &345701676
 MonoBehaviour:
   m_ObjectHideFlags: 0

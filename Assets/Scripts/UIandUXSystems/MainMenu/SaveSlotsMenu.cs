@@ -174,6 +174,13 @@ public class SaveSlotsMenu : Menu
 
         savedScene = ResolveLoadableSceneOrFallback(savedScene, firstLevel);
 
+        if (savedScene == null)
+        {
+            RestoreMenuButtons();
+            hasStartedSceneTransition = false;
+            return;
+        }
+
         SceneLoader.LoadIntoGame(savedScene, newGame: false);
     }
 
@@ -207,11 +214,11 @@ public class SaveSlotsMenu : Menu
 
     private static SceneAsset ResolveLoadableSceneOrFallback(SceneAsset scene, SceneAsset fallbackScene)
     {
-        if (scene != null && Application.CanStreamedLevelBeLoaded(scene.SceneName)) return scene;
+        if (scene != null) return scene;
 
-        if (fallbackScene != null && Application.CanStreamedLevelBeLoaded(fallbackScene.SceneName)) return fallbackScene;
+        if (fallbackScene != null) return fallbackScene;
 
-        Debug.LogError($"Neither the saved scene '{scene}' nor the fallback scene '{fallbackScene}' could be loaded. Check that they are included in the build settings and that the saved scene name is correct.");
+        Debug.LogError($"Neither the saved scene '{scene}' nor the fallback scene '{fallbackScene}' could be resolved through the SceneAsset system.");
         return null;
     }
 

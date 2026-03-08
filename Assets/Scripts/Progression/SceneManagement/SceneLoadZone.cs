@@ -40,14 +40,26 @@ namespace Progression.SceneManagement
 
         private void LoadScene()
         {
+            if (sceneToManage == null)
+            {
+                Debug.LogError($"SceneLoadZone on {gameObject.name} cannot load because no SceneAsset is assigned.");
+                return;
+            }
+
             Debug.Log($"Loading scene {sceneToManage.name} due to player entering zone {this.gameObject.name}.");
-            SceneLoader.LoadCoroutine(sceneToManage, loadScreen: false);
+            SceneLoader.Load(sceneToManage, loadScreen: false);
         }
 
         private void UnloadScene()
         {
+            if (sceneToManage == null)
+            {
+                Debug.LogError($"SceneLoadZone on {gameObject.name} cannot unload because no SceneAsset is assigned.");
+                return;
+            }
+
             Debug.Log($"Unloading scene {sceneToManage.name} due to player entering zone {this.gameObject.name}.");
-            SceneLoader.UnloadCoroutine(sceneToManage);
+            SceneLoader.Unload(sceneToManage);
         }
     }
 }

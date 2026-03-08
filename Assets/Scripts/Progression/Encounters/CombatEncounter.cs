@@ -13,6 +13,8 @@ namespace Progression.Encounters
 
         [SerializeField] private bool dropObjectOnClear = false;
         [SerializeField] private GameObject objectToDrop;
+        [SerializeField] private bool loadSceneOnClear = false;
+        [SerializeField] private SceneAsset sceneToLoadOnClear;
         private bool dropAtLastEnemyPosition = true;
         #endregion
 
@@ -45,6 +47,7 @@ namespace Progression.Encounters
             base.SetupEncounter();
 
             OnEncounterCompleted += DropItem;
+            OnEncounterCompleted += LoadSceneOnClear;
 
             allWaves.Clear(); // Clear any existing waves in case of editor changes or scene reload
 
@@ -92,6 +95,7 @@ namespace Progression.Encounters
                 CleanupWave(wave);
 
             OnEncounterCompleted -= DropItem;
+            OnEncounterCompleted -= LoadSceneOnClear;
         }
         #endregion
 
@@ -124,6 +128,21 @@ namespace Progression.Encounters
 
             objectToDrop.transform.position = dropPosition;
             objectToDrop.SetActive(true);
+        }
+
+        private void LoadSceneOnClear()
+        {
+            if (!loadSceneOnClear)
+                return;
+
+            if (sceneToLoadOnClear == null)
+            {
+                Debug.LogWarning($"[CombatEncounter] {name} is set to load a scene on clear, but no SceneAsset is assigned.");
+                return;
+            }
+
+            Debug.Log($"[CombatEncounter] Loading scene {sceneToLoadOnClear.name} after clearing encounter {name}.");
+            SceneLoader.Load(sceneToLoadOnClear, loadScreen: false);
         }
 
         #region Wave Manipulation Functions

@@ -148,7 +148,9 @@ public class PlayerCombatIdleController : MonoBehaviour
         bool grounded = characterController != null
             ? characterController.isGrounded
             : playerMovement != null && PlayerMovement.isGrounded;
-        bool hasMovementInput = InputReader.MoveInput.sqrMagnitude >= movementThreshold;
+        bool hasMovementInput = playerMovement != null
+            ? playerMovement.HasEffectiveMovementInput
+            : InputReader.MoveInput.sqrMagnitude >= movementThreshold;
 
         if (combatTimer > 0f)
             combatTimer = Mathf.Max(0f, combatTimer - Time.deltaTime);
