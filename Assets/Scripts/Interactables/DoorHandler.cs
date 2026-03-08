@@ -36,7 +36,7 @@ public class DoorPartMovement
     public float distToOpenParts = 2.0f;
     [HideInInspector] public Vector3 closedLocalPosition;
 }
-public abstract class DoorHandler : MonoBehaviour
+public class DoorHandler : MonoBehaviour
 {
 
     public enum DoorState { Open, Closed }
@@ -133,12 +133,16 @@ public abstract class DoorHandler : MonoBehaviour
                 break;
             case DoorState.Closed:
                 OpenDoor();
-                NotAllowReentryCoroutine();
+                StartCoroutine(NotAllowReentryCoroutine());
                 break;
         }
     }
 
-    public abstract IEnumerator NotAllowReentryCoroutine();
+    public virtual IEnumerator NotAllowReentryCoroutine()
+    {
+        // Default doors do not use one-way re-entry behavior.
+        yield break;
+    }
 
     private void StartingLightColor()
     {
