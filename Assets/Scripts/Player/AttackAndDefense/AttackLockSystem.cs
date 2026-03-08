@@ -93,10 +93,49 @@ public class AttackLockSystem : MonoBehaviour
     [Tooltip("Fallback: also rotate the player instantly if camera steering is disabled.")]
     private bool rotatePlayerIfCameraDisabled = false;
 
+    [Header("Lock-On Camera Lean Settings")]
+    [SerializeField, Range(1f, 30f)]
+    [Tooltip("Maximum degrees the player can lean the camera horizontally away from the lock-on target.")]
+    private float maxHorizontalLeanAngle = 10f;
+
+    [SerializeField, Range(1f, 20f)]
+    [Tooltip("Maximum degrees the player can lean the camera vertically.")]
+    private float maxVerticalLeanAngle = 8f;
+
+    [SerializeField]
+    [Tooltip("When enabled, pushing up on the camera input will look down and vice versa.")]
+    private bool invertVerticalLean = false;
+
+    [SerializeField, Range(0.5f, 5f)]
+    [Tooltip("How quickly the lean responds to input. Higher = faster initial response.")]
+    private float leanResponseSpeed = 2f;
+
+    [SerializeField, Range(0.05f, 0.5f)]
+    [Tooltip("How quickly the lean returns to center when input is released.")]
+    private float leanReturnTime = 0.15f;
+
+    /// <summary>
+    /// Gets or sets whether vertical lean input is inverted. Can be used by settings menu.
+    /// </summary>
+    public bool InvertVerticalLean
+    {
+        get => invertVerticalLean;
+        set => invertVerticalLean = value;
+    }
+
     private Transform playerTransform => player != null ? player.transform : transform;
     private Transform currentTarget;
     private bool hardLockActive;
     private Coroutine moveCoroutine;
+    private float cameraYawVelocity; // For horizontal SmoothDamp
+    private float cameraPitchVelocity; // For vertical SmoothDamp
+    private CinemachineInputAxisController cachedInputAxisController;
+    private float currentHorizontalLean; // Current horizontal lean offset in degrees
+    private float currentVerticalLean; // Current vertical lean offset in degrees
+    private float horizontalLeanVelocity; // For smooth horizontal lean return
+    private float verticalLeanVelocity; // For smooth vertical lean return
+    private float baseVerticalValue; // The vertical axis value when lock-on started
+    private bool hasBaseVerticalValue;
     public bool IsHardLockActive => hardLockActive && currentTarget != null;
     public Transform CurrentHardLockTarget => currentTarget;
 
@@ -121,6 +160,13 @@ public class AttackLockSystem : MonoBehaviour
         InputReader.LeftTargetPressed -= HandleLeftTargetRequested;
         InputReader.RightTargetPressed -= HandleRightTargetRequested;
         StopMoveRoutine();
+        
+        // Ensure camera input is re-enabled when this component is disabled
+        if (hardLockActive)
+        {
+            SetCameraInputEnabled(true);
+        }
+        
         ClearHardLock();
     }
 
@@ -190,7 +236,7 @@ public class AttackLockSystem : MonoBehaviour
             return;
         }
 
-        ActivateHardLock(null, instantCameraAlign: true);
+        ActivateHardLock(null, instantCameraAlign: false); // Smooth transition when locking on
     }
 
     private void HandleLeftTargetRequested() => CycleHardLock(-1);
@@ -207,7 +253,8 @@ public class AttackLockSystem : MonoBehaviour
             return;
 
         currentTarget = nextTarget;
-        AlignPlayerAndCamera(nextTarget, instantCameraAlign: true);
+        ResetLeanState(); // Reset lean when switching targets for clean transition
+        AlignPlayerAndCamera(nextTarget, instantCameraAlign: false); // Smooth transition to new target
     }
 
     public bool ActivateHardLock(Transform forcedTarget = null, bool instantCameraAlign = false)
@@ -218,6 +265,8 @@ public class AttackLockSystem : MonoBehaviour
 
         hardLockActive = true;
         currentTarget = candidate;
+        ResetLeanState(); // Start with no lean
+        SetCameraInputEnabled(false); // Disable automatic input - we read it ourselves for lean effect
         AlignPlayerAndCamera(candidate, instantCameraAlign);
         return true;
     }
@@ -256,7 +305,8 @@ public class AttackLockSystem : MonoBehaviour
 
     private void TryApplySoftLockNudge()
     {
-        Transform target = FindNearestEnemy(softLockRadius);
+        // Only target enemies within the player's forward-facing cone
+        Transform target = FindNearestEnemyInPlayerCone(softLockRadius);
         if (target == null)
             return;
 
@@ -312,6 +362,41 @@ public class AttackLockSystem : MonoBehaviour
     {
         hardLockActive = false;
         currentTarget = null;
+        cameraYawVelocity = 0f;
+        cameraPitchVelocity = 0f;
+        ResetLeanState();
+        SetCameraInputEnabled(true); // Re-enable full camera input
+    }
+
+    private void ResetLeanState()
+    {
+        currentHorizontalLean = 0f;
+        currentVerticalLean = 0f;
+        horizontalLeanVelocity = 0f;
+        verticalLeanVelocity = 0f;
+        hasBaseVerticalValue = false; // Will be recaptured on next frame
+    }
+
+    /// <summary>
+    /// Enables or disables the camera input axis controller.
+    /// During lock-on, we disable it so we can read input ourselves for the lean effect.
+    /// </summary>
+    private void SetCameraInputEnabled(bool enabled)
+    {
+        CinemachineCamera activeCamera = cameraManager != null ? cameraManager.GetActiveCamera() : null;
+        if (activeCamera == null)
+            return;
+
+        // Cache and control the input axis controller
+        if (cachedInputAxisController == null || cachedInputAxisController.gameObject != activeCamera.gameObject)
+        {
+            cachedInputAxisController = activeCamera.GetComponent<CinemachineInputAxisController>();
+        }
+
+        if (cachedInputAxisController != null)
+        {
+            cachedInputAxisController.enabled = enabled;
+        }
     }
 
     private void StopMoveRoutine()
@@ -323,12 +408,15 @@ public class AttackLockSystem : MonoBehaviour
         moveCoroutine = null;
     }
 
+
     private Transform FindBestHardLockTarget()
     {
+        // Hard lock uses camera-based targeting: find enemy most centered in camera view
         Transform screenAligned = FindScreenAlignedEnemy(lockOnDistance);
         if (screenAligned != null)
             return screenAligned;
 
+        // Fallback: find nearest enemy within distance
         return FindNearestEnemy(lockOnDistance);
     }
 
@@ -343,8 +431,105 @@ public class AttackLockSystem : MonoBehaviour
             if (!ColliderIsEnemy(hit))
                 continue;
 
-            Transform candidate = hit.transform;
+            Transform candidate = GetEnemyRoot(hit.transform);
             if (candidate == ignore)
+                continue;
+
+            // Skip enemies that are dying
+            BaseEnemyCore enemy = candidate.GetComponent<BaseEnemyCore>();
+            if (enemy != null && !enemy.isAlive)
+                continue;
+
+            float sqrDistance = (candidate.position - playerTransform.position).sqrMagnitude;
+            if (sqrDistance < smallestDistance)
+            {
+                smallestDistance = sqrDistance;
+                closest = candidate;
+            }
+        }
+
+        return closest;
+    }
+
+    /// <summary>
+    /// Finds the nearest enemy within the specified radius that is within the player's
+    /// forward cone (based on lockOnAngle). Used as fallback when no target in tight cone.
+    /// </summary>
+    private Transform FindNearestEnemyInFront(float radius)
+    {
+        Collider[] hits = GetEnemyHits(radius);
+        Transform closest = null;
+        float smallestDistance = float.MaxValue;
+
+        Vector3 playerForward = playerTransform.forward;
+        playerForward.y = 0f;
+        playerForward.Normalize();
+
+        foreach (Collider hit in hits)
+        {
+            if (!ColliderIsEnemy(hit))
+                continue;
+
+            Transform candidate = GetEnemyRoot(hit.transform);
+
+            // Skip enemies that are dying
+            BaseEnemyCore enemy = candidate.GetComponent<BaseEnemyCore>();
+            if (enemy != null && !enemy.isAlive)
+                continue;
+
+            Vector3 directionToCandidate = GetFlatDirection(candidate.position);
+            if (directionToCandidate.sqrMagnitude < 0.001f)
+                continue;
+
+            // Only include enemies within the lockOnAngle cone
+            float angle = Vector3.Angle(playerForward, directionToCandidate);
+            if (angle > lockOnAngle)
+                continue;
+
+            float sqrDistance = (candidate.position - playerTransform.position).sqrMagnitude;
+            if (sqrDistance < smallestDistance)
+            {
+                smallestDistance = sqrDistance;
+                closest = candidate;
+            }
+        }
+
+        return closest;
+    }
+
+    /// <summary>
+    /// Finds the nearest enemy within the specified radius that is also within the player's
+    /// forward-facing cone of vision (based on lockOnAngle).
+    /// </summary>
+    private Transform FindNearestEnemyInPlayerCone(float radius)
+    {
+        Collider[] hits = GetEnemyHits(radius);
+        Transform closest = null;
+        float smallestDistance = float.MaxValue;
+
+        Vector3 playerForward = playerTransform.forward;
+        playerForward.y = 0f;
+        playerForward.Normalize();
+
+        foreach (Collider hit in hits)
+        {
+            if (!ColliderIsEnemy(hit))
+                continue;
+
+            Transform candidate = GetEnemyRoot(hit.transform);
+
+            // Skip enemies that are dying
+            BaseEnemyCore enemy = candidate.GetComponent<BaseEnemyCore>();
+            if (enemy != null && !enemy.isAlive)
+                continue;
+
+            Vector3 directionToCandidate = GetFlatDirection(candidate.position);
+            if (directionToCandidate.sqrMagnitude < 0.001f)
+                continue;
+
+            // Check if the enemy is within the player's forward cone
+            float angle = Vector3.Angle(playerForward, directionToCandidate);
+            if (angle > lockOnAngle)
                 continue;
 
             float sqrDistance = (candidate.position - playerTransform.position).sqrMagnitude;
@@ -372,7 +557,14 @@ public class AttackLockSystem : MonoBehaviour
             if (!ColliderIsEnemy(hit))
                 continue;
 
-            Vector3 direction = GetFlatDirection(hit.transform.position);
+            Transform candidate = GetEnemyRoot(hit.transform);
+
+            // Skip enemies that are dying
+            BaseEnemyCore enemy = candidate.GetComponent<BaseEnemyCore>();
+            if (enemy != null && !enemy.isAlive)
+                continue;
+
+            Vector3 direction = GetFlatDirection(candidate.position);
             if (direction.sqrMagnitude < 0.001f)
                 continue;
 
@@ -380,7 +572,7 @@ public class AttackLockSystem : MonoBehaviour
             if (angle <= lockOnAngle * 2f && angle < smallestAngle)
             {
                 smallestAngle = angle;
-                best = hit.transform;
+                best = candidate;
             }
         }
 
@@ -402,8 +594,13 @@ public class AttackLockSystem : MonoBehaviour
             if (!ColliderIsEnemy(hit))
                 continue;
 
-            Transform candidate = hit.transform;
+            Transform candidate = GetEnemyRoot(hit.transform);
             if (candidate == currentTarget)
+                continue;
+
+            // Skip enemies that are dying
+            BaseEnemyCore enemy = candidate.GetComponent<BaseEnemyCore>();
+            if (enemy != null && !enemy.isAlive)
                 continue;
 
             Vector3 directionToCandidate = GetFlatDirection(candidate.position);
@@ -438,7 +635,7 @@ public class AttackLockSystem : MonoBehaviour
             playerTransform.position,
             radius,
             mask,
-            QueryTriggerInteraction.Ignore
+            QueryTriggerInteraction.Collide
         );
     }
 
@@ -447,7 +644,8 @@ public class AttackLockSystem : MonoBehaviour
         if (hit == null)
             return false;
 
-        if (!hit.CompareTag("Enemy"))
+        // Check the collider's GameObject and its parents for the "Enemy" tag
+        if (!HasEnemyTagInHierarchy(hit.transform))
             return false;
 
         if (!enforceLayerMask)
@@ -455,6 +653,37 @@ public class AttackLockSystem : MonoBehaviour
 
         int bit = 1 << hit.gameObject.layer;
         return (enemyLayers.value & bit) != 0;
+    }
+
+    /// <summary>
+    /// Checks if any object in the hierarchy (self or parents) has the "Enemy" tag.
+    /// </summary>
+    private bool HasEnemyTagInHierarchy(Transform t)
+    {
+        while (t != null)
+        {
+            if (t.CompareTag("Enemy"))
+                return true;
+            t = t.parent;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Returns the closest ancestor (or self) with the "Enemy" tag.
+    /// This ensures we get the actual enemy object, not a higher-level container.
+    /// Falls back to the provided transform if no tagged object is found.
+    /// </summary>
+    private Transform GetEnemyRoot(Transform t)
+    {
+        Transform original = t;
+        while (t != null)
+        {
+            if (t.CompareTag("Enemy"))
+                return t;
+            t = t.parent;
+        }
+        return original;
     }
 
     private bool TryGetCameraBasis(out Vector3 forward, out Vector3 right)
@@ -497,6 +726,11 @@ public class AttackLockSystem : MonoBehaviour
         if (target == null || !target.gameObject.activeInHierarchy)
             return false;
 
+        // Check if the enemy is still alive (not dying)
+        BaseEnemyCore enemy = target.GetComponent<BaseEnemyCore>();
+        if (enemy != null && !enemy.isAlive)
+            return false;
+
         float sqrDistance = (target.position - playerTransform.position).sqrMagnitude;
         return sqrDistance <= maxDistance * maxDistance;
     }
@@ -519,15 +753,121 @@ public class AttackLockSystem : MonoBehaviour
         if (orbital == null)
             return;
 
+        // Capture the base vertical value on first call (the camera's vertical position when lock started)
+        if (!hasBaseVerticalValue)
+        {
+            baseVerticalValue = orbital.VerticalAxis.Value;
+            hasBaseVerticalValue = true;
+        }
+
         Vector3 toTarget = target.position - playerTransform.position;
         Vector3 flat = new Vector3(toTarget.x, 0f, toTarget.z);
         if (flat.sqrMagnitude < 0.001f)
             return;
 
-        float desiredYaw = Mathf.Atan2(flat.x, flat.z) * Mathf.Rad2Deg;
-        float lerpFactor = instant ? 1f : Time.deltaTime / Mathf.Max(0.001f, cameraSnapTime);
-        float nextYaw = Mathf.LerpAngle(orbital.HorizontalAxis.Value, desiredYaw, lerpFactor);
-        orbital.HorizontalAxis.Value = nextYaw;
+        // Calculate base yaw pointing at the enemy
+        float baseYaw = Mathf.Atan2(flat.x, flat.z) * Mathf.Rad2Deg;
+
+        // Calculate lean offsets from player input
+        CalculateLeanOffsets(out float horizontalLean, out float verticalLean);
+        
+        float desiredYaw = baseYaw + horizontalLean;
+        
+        // Vertical: base value + lean offset, clamped to orbital bounds
+        float desiredVertical = Mathf.Clamp(
+            baseVerticalValue + verticalLean,
+            orbital.VerticalAxis.Range.x,
+            orbital.VerticalAxis.Range.y
+        );
+
+        if (instant)
+        {
+            orbital.HorizontalAxis.Value = desiredYaw;
+            orbital.VerticalAxis.Value = desiredVertical;
+            cameraYawVelocity = 0f;
+            cameraPitchVelocity = 0f;
+        }
+        else
+        {
+            // Use SmoothDampAngle for smooth horizontal rotation
+            float nextYaw = Mathf.SmoothDampAngle(
+                orbital.HorizontalAxis.Value,
+                desiredYaw,
+                ref cameraYawVelocity,
+                cameraSnapTime
+            );
+            orbital.HorizontalAxis.Value = nextYaw;
+
+            // Use SmoothDamp for smooth vertical movement
+            float nextVertical = Mathf.SmoothDamp(
+                orbital.VerticalAxis.Value,
+                desiredVertical,
+                ref cameraPitchVelocity,
+                cameraSnapTime * 0.5f // Slightly faster vertical response
+            );
+            orbital.VerticalAxis.Value = nextVertical;
+        }
+    }
+
+
+    /// <summary>
+    /// Calculates the camera lean offsets based on player input.
+    /// Uses a soft curve (tanh) so initial input is responsive but slows as it approaches the limit.
+    /// </summary>
+    private void CalculateLeanOffsets(out float horizontalLean, out float verticalLean)
+    {
+        // Get player look input
+        Vector2 lookInput = InputReader.LookInput;
+        float horizontalInput = lookInput.x;
+        
+        // Apply vertical inversion based on player preference
+        // Default (non-inverted): up input looks up, down input looks down
+        float verticalInput = invertVerticalLean ? lookInput.y : -lookInput.y;
+
+        // Process horizontal lean
+        if (Mathf.Abs(horizontalInput) > 0.01f)
+        {
+            float normalizedLean = currentHorizontalLean / maxHorizontalLeanAngle;
+            float availableRoom = 1f - Mathf.Abs((float)System.Math.Tanh(normalizedLean * 2f));
+            availableRoom = Mathf.Max(availableRoom, 0.1f);
+            
+            float inputEffect = horizontalInput * leanResponseSpeed * availableRoom * Time.deltaTime * 60f;
+            currentHorizontalLean += inputEffect;
+            currentHorizontalLean = Mathf.Clamp(currentHorizontalLean, -maxHorizontalLeanAngle, maxHorizontalLeanAngle);
+        }
+        else
+        {
+            currentHorizontalLean = Mathf.SmoothDamp(currentHorizontalLean, 0f, ref horizontalLeanVelocity, leanReturnTime);
+            if (Mathf.Abs(currentHorizontalLean) < 0.1f)
+            {
+                currentHorizontalLean = 0f;
+                horizontalLeanVelocity = 0f;
+            }
+        }
+
+        // Process vertical lean
+        if (Mathf.Abs(verticalInput) > 0.01f)
+        {
+            float normalizedLean = currentVerticalLean / maxVerticalLeanAngle;
+            float availableRoom = 1f - Mathf.Abs((float)System.Math.Tanh(normalizedLean * 2f));
+            availableRoom = Mathf.Max(availableRoom, 0.1f);
+            
+            float inputEffect = verticalInput * leanResponseSpeed * availableRoom * Time.deltaTime * 60f;
+            currentVerticalLean += inputEffect;
+            currentVerticalLean = Mathf.Clamp(currentVerticalLean, -maxVerticalLeanAngle, maxVerticalLeanAngle);
+        }
+        else
+        {
+            currentVerticalLean = Mathf.SmoothDamp(currentVerticalLean, 0f, ref verticalLeanVelocity, leanReturnTime);
+            if (Mathf.Abs(currentVerticalLean) < 0.1f)
+            {
+                currentVerticalLean = 0f;
+                verticalLeanVelocity = 0f;
+            }
+        }
+
+        horizontalLean = currentHorizontalLean;
+        verticalLean = currentVerticalLean;
     }
 
     private void FaceTargetImmediately(Transform target)
@@ -561,11 +901,23 @@ public class AttackLockSystem : MonoBehaviour
             return;
         }
 
-        float maxStep = hardLockRotateSpeed * Time.deltaTime;
-        playerTransform.rotation = Quaternion.RotateTowards(
+        // Use Slerp for smoother rotation that doesn't overshoot
+        // Convert degrees/second to a lerp factor (higher speed = faster lerp)
+        float angularDifference = Quaternion.Angle(playerTransform.rotation, desired);
+        
+        // Only rotate if there's a meaningful difference (reduces micro-jitter)
+        if (angularDifference < 0.5f)
+            return;
+
+        // Calculate a smooth lerp factor based on the rotation speed
+        // This creates a smoother feel than RotateTowards
+        float rotationFactor = Mathf.Clamp01(hardLockRotateSpeed * Time.deltaTime / Mathf.Max(angularDifference, 1f));
+        rotationFactor = Mathf.Max(rotationFactor, 0.1f); // Minimum rotation speed
+        
+        playerTransform.rotation = Quaternion.Slerp(
             playerTransform.rotation,
             desired,
-            maxStep
+            rotationFactor
         );
     }
 

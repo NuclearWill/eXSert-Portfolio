@@ -1186,7 +1186,10 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
         if (movementAudioSource == null || PauseManager.IsPaused) return;
         
         movementAudioSource.clip = movementSFXClip;
-        movementAudioSource.volume = SoundManager.Instance.sfxSource.volume * movementSFXVolume;
+        float sfxVolume = (SoundManager.Instance != null && SoundManager.Instance.sfxSource != null) 
+            ? SoundManager.Instance.sfxSource.volume 
+            : 1f;
+        movementAudioSource.volume = sfxVolume * movementSFXVolume;
         movementAudioSource.loop = true;
         
         // Always call Play() to restart the audio, even if it was playing before
