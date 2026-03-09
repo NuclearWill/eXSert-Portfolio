@@ -50,6 +50,9 @@ public class SceneAsset : ScriptableObject
      */
     public static SceneAsset GetSceneAsset(string name)
     {
+        if (string.IsNullOrWhiteSpace(name))
+            return null;
+
         SceneAsset asset = Resources.Load<SceneAsset>($"Scene Assets/{name}");
         if (asset == null)
             Debug.LogError($"Unable to find scene asset with name {name}. Ensure one is created in Scene/Resources/Scene Assets or that name is spelled correctly");
@@ -58,6 +61,9 @@ public class SceneAsset : ScriptableObject
 
     public static SceneAsset GetSceneAsset(Scene scene)
     {
+        if (!scene.IsValid() || string.IsNullOrWhiteSpace(scene.name))
+            return null;
+
         SceneAsset asset = Resources.Load<SceneAsset>($"Scene Assets/{scene.name}");
         if (asset == null)
             Debug.LogError($"Unable to find scene asset {scene.name}. Ensure one is created in Scene/Resources/Scene Assets");
@@ -67,7 +73,13 @@ public class SceneAsset : ScriptableObject
     // Returns the SceneAsset an inputted GameObject is in
     public static SceneAsset GetSceneAssetOfObject(GameObject go)
     {
+        if (go == null)
+            return null;
+
         Scene objectScene = go.scene;
+        if (!objectScene.IsValid() || string.IsNullOrWhiteSpace(objectScene.name))
+            return null;
+
         SceneAsset asset = GetSceneAsset(objectScene);
         if (asset == null)
         {

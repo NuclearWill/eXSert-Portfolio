@@ -12,11 +12,18 @@ using UnityEngine.Video;
 /// </summary>
 public static class SceneLoader
 {
+    private sealed class PreparedSceneLoad
+    {
+        public SceneAsset SceneAsset;
+        public AsyncOperation Operation;
+    }
+
     private const string PLAYER_SCENE = "PlayerScene"; // The name of the player scene
     private const string MAIN_MENU_SCENE = "MainMenu"; // The name of the main menu scene
     private const string LOADING_SCENE = "LoadingScene";
     public const string EditorBootstrapLoadingScreenOwnerId = "ProgressionManager.EditorIsolatedLoad";
     private static readonly HashSet<string> loadingScreenSuppressionOwners = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, PreparedSceneLoad> preparedSceneLoads = new(StringComparer.Ordinal);
 
     /// <summary>Number of currently loaded scenes.</summary>
     public static int LoadedSceneCount => SceneManager.sceneCount;
@@ -106,6 +113,76 @@ public static class SceneLoader
     /// <summary>Event invoked when a forced scene reload is requested.</summary>
     public static Action OnSceneReloaded { get; internal set; }
 
+    public static bool IsScenePrepared(SceneAsset scene)
+    {
+        if (scene == null)
+            return false;
+
+        if (!preparedSceneLoads.TryGetValue(scene.SceneName, out PreparedSceneLoad preparedScene))
+            return false;
+
+        return preparedScene.Operation != null && preparedScene.Operation.progress >= 0.9f;
+    }
+
+    public static AsyncOperation PreloadAdditive(SceneAsset scene)
+    {
+        if (scene == null)
+        {
+            Debug.LogError("[Scene Loader] Cannot preload a null SceneAsset.");
+            return null;
+        }
+
+        if (scene.IsLoaded())
+        {
+            Debug.LogWarning($"[Scene Loader] Scene '{scene.SceneName}' is already loaded. Preload request ignored.");
+            return null;
+        }
+
+        if (preparedSceneLoads.TryGetValue(scene.SceneName, out PreparedSceneLoad existingPreparedScene))
+            return existingPreparedScene.Operation;
+
+        AsyncOperation operation = SceneManager.LoadSceneAsync(scene.SceneName, LoadSceneMode.Additive);
+        if (operation == null)
+        {
+            Debug.LogError($"[Scene Loader] Failed to start preload for '{scene.SceneName}'.");
+            return null;
+        }
+
+        operation.allowSceneActivation = false;
+        preparedSceneLoads[scene.SceneName] = new PreparedSceneLoad
+        {
+            SceneAsset = scene,
+            Operation = operation,
+        };
+
+        operation.completed += _ => preparedSceneLoads.Remove(scene.SceneName);
+        return operation;
+    }
+
+    public static AsyncOperation ActivatePreparedScene(SceneAsset scene, bool loadScreen = false)
+    {
+        if (scene == null)
+        {
+            Debug.LogError("[Scene Loader] Cannot activate a null SceneAsset.");
+            return null;
+        }
+
+        if (scene.IsLoaded())
+        {
+            Debug.LogWarning($"[Scene Loader] Scene '{scene.SceneName}' is already loaded. Activation request ignored.");
+            return null;
+        }
+
+        if (preparedSceneLoads.TryGetValue(scene.SceneName, out PreparedSceneLoad preparedScene)
+            && preparedScene.Operation != null)
+        {
+            preparedScene.Operation.allowSceneActivation = true;
+            return preparedScene.Operation;
+        }
+
+        return Load(scene, loadScreen: loadScreen);
+    }
+
     /// <summary>Loads a SceneAsset (additive). Returns the AsyncOperation or null on error. (Legacy API)</summary>
     public static AsyncOperation Load(SceneAsset scene, bool forceReload = false, bool loadScreen = true)
     {
@@ -114,6 +191,13 @@ public static class SceneLoader
         {
             Debug.LogError("Cannot load a null SceneAsset.");
             return null;
+        }
+
+        if (!forceReload && preparedSceneLoads.TryGetValue(scene.SceneName, out PreparedSceneLoad preparedScene)
+            && preparedScene.Operation != null)
+        {
+            preparedScene.Operation.allowSceneActivation = true;
+            return preparedScene.Operation;
         }
 
         if (forceReload) OnSceneReloaded?.Invoke();
@@ -164,6 +248,14 @@ public static class SceneLoader
         if (scene == null)
         {
             Debug.LogError("Cannot load a null SceneAsset.");
+            yield break;
+        }
+
+        if (!forceReload && preparedSceneLoads.TryGetValue(scene.SceneName, out PreparedSceneLoad preparedScene)
+            && preparedScene.Operation != null)
+        {
+            preparedScene.Operation.allowSceneActivation = true;
+            yield return preparedScene.Operation;
             yield break;
         }
 
