@@ -146,7 +146,7 @@ namespace UI.Loading
 
                 OnLoadingScreenShown?.Invoke();
 
-                CursorBySchemeAndMap.SetForceHidden(true);
+                CursorManager.SetForceHidden(true);
 
                 propManager?.ShowRandomProp();
 
@@ -186,7 +186,7 @@ namespace UI.Loading
                 // Fade out and then release our pause request (if we had one)
                 yield return FadeOutAndReleasePause(pauseToken);
 
-                CursorBySchemeAndMap.SetForceHidden(false);
+                CursorManager.SetForceHidden(false);
             }
             finally
             {

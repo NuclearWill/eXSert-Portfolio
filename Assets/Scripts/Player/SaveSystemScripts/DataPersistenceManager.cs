@@ -69,8 +69,36 @@ public class DataPersistenceManager : Singleton<DataPersistenceManager>
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         //Defines the variable dataPersistenceObjects to be the function below
-        dataPersistenceObjects = FindAllDataPersistenceObjects();
+        RefreshDataPersistenceObjects();
         LoadGame();
+    }
+
+    private static void RefreshDataPersistenceObjects()
+    {
+        if (Instance == null)
+        {
+            dataPersistenceObjects = new List<IDataPersistenceManager>();
+            return;
+        }
+
+        dataPersistenceObjects = Instance.FindAllDataPersistenceObjects();
+    }
+
+    private static IEnumerable<IDataPersistenceManager> GetValidDataPersistenceObjects()
+    {
+        RefreshDataPersistenceObjects();
+
+        if (dataPersistenceObjects == null)
+            yield break;
+
+        foreach (IDataPersistenceManager dataPersistenceObj in dataPersistenceObjects)
+        {
+            if (dataPersistenceObj is UnityEngine.Object unityObject && unityObject == null)
+                continue;
+
+            if (dataPersistenceObj != null)
+                yield return dataPersistenceObj;
+        }
     }
 
     public static void ChangeSelectedProfileId(string newProfileId)
@@ -116,7 +144,7 @@ public class DataPersistenceManager : Singleton<DataPersistenceManager>
         // Keep the manager's cached lastSavedScene in sync with the loaded profile
         lastSavedScene = gameData.lastSavedScene;
         //Goes through each of the found items that needs to be loaded and loads them
-        foreach (IDataPersistenceManager dataPersistenceObj in dataPersistenceObjects)
+        foreach (IDataPersistenceManager dataPersistenceObj in GetValidDataPersistenceObjects())
         {
             dataPersistenceObj.LoadData(gameData);
         }
@@ -128,7 +156,7 @@ public class DataPersistenceManager : Singleton<DataPersistenceManager>
         if (gameData == null) return;
 
         //Goes through each of the found items that needs to be saved and saves them
-        foreach (IDataPersistenceManager dataPersistenceObj in dataPersistenceObjects)
+        foreach (IDataPersistenceManager dataPersistenceObj in GetValidDataPersistenceObjects())
             dataPersistenceObj.SaveData(gameData);
 
         CheckpointBehavior activeCheckpoint = CheckpointBehavior.currentCheckpoint;

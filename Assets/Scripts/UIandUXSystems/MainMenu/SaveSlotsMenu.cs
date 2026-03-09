@@ -240,6 +240,12 @@ public class SaveSlotsMenu : Menu
             playButton.interactable = true;
     }
 
+    private void ResetTransientMenuState()
+    {
+        hasStartedSceneTransition = false;
+        RestoreMenuButtons();
+    }
+
     /// <summary>
     /// Deletes the currently selected save slot's data from disk and refreshes the UI list.
     /// Wire this to the Delete button's OnClick.
@@ -267,6 +273,8 @@ public class SaveSlotsMenu : Menu
     public void OnBackClicked()
     {
         EnsureReferences();
+        ResetTransientMenuState();
+
         if (mainMenu != null)
             mainMenu.ActivateMenu();
 
@@ -277,6 +285,7 @@ public class SaveSlotsMenu : Menu
     public void ActivateMenu(bool isLoadingGame)
     {
         EnsureReferences();
+        ResetTransientMenuState();
         this.gameObject.SetActive(true);
 
         this.isLoadingGame = isLoadingGame;

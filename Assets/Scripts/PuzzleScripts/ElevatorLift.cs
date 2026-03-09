@@ -9,6 +9,16 @@ public class ElevatorLift : MonoBehaviour
 {
     // FixedUpdate movement reverted; coroutine will handle movement
 
+    [Header("Failsafe")]
+    [SerializeField, Tooltip("Automatically recalls the lift to floor one when the player is stranded near the base of the shaft.")]
+    private bool enableGroundRecallFailsafe = true;
+    [SerializeField, Min(0f), Tooltip("Horizontal distance from the first-floor lift position within which the player counts as waiting for a recall.")]
+    private float groundRecallRadius = 6f;
+    [SerializeField, Min(0f), Tooltip("Maximum height above the first-floor lift position at which the failsafe can trigger.")]
+    private float groundRecallMaxHeightOffset = 3f;
+    [SerializeField, Min(0f), Tooltip("Minimum delay between automatic recall attempts.")]
+    private float groundRecallCooldown = 2f;
+
     [SerializeField] private GameObject elevatorLift;
     [SerializeField] private CinemachineCamera elevatorCamera;
     [SerializeField] private GameObject[] elevatorUI;
@@ -37,6 +47,7 @@ public class ElevatorLift : MonoBehaviour
     private string gameplayInputBlockOwner;
     private int cachedCameraPriority = 9;
     private bool menuActive;
+    private float nextGroundRecallTime;
 
 
 
@@ -71,6 +82,11 @@ public class ElevatorLift : MonoBehaviour
         }
 
         CachePlayerReferences();
+    }
+
+    private void Update()
+    {
+        TryTriggerGroundRecallFailsafe();
     }
 
     private bool TryResolveRuntimeActions()
@@ -390,19 +406,19 @@ public class ElevatorLift : MonoBehaviour
     private void MoveToFirstFloor(InputAction.CallbackContext context)
     {
         if(currentFloor == 0 || isMoving) return;
-        StartCoroutine(MoveLift(0));
+        StartCoroutine(MoveLift(0, carryPlayerWithLift: true));
     }
 
     private void MoveToSecondFloor(InputAction.CallbackContext context)
     {
         if(currentFloor == 1 || isMoving) return;
-        StartCoroutine(MoveLift(1));
+        StartCoroutine(MoveLift(1, carryPlayerWithLift: true));
     }
 
     private void MoveToThirdFloor(InputAction.CallbackContext context)
     {
         if(currentFloor == 2 || isMoving) return;
-        StartCoroutine(MoveLift(2));
+        StartCoroutine(MoveLift(2, carryPlayerWithLift: true));
     }
 
     private void SwapActionMaps(string actionMapName)
@@ -413,7 +429,43 @@ public class ElevatorLift : MonoBehaviour
     public void CallElevatorToFloorOne()
     {
         if(currentFloor == 0 || isMoving) return;
-        StartCoroutine(MoveLift(0));
+        StartCoroutine(MoveLift(0, carryPlayerWithLift: true));
+    }
+
+    private void TryTriggerGroundRecallFailsafe()
+    {
+        if (!enableGroundRecallFailsafe || menuActive || isMoving || currentFloor == 0)
+            return;
+
+        if (Time.time < nextGroundRecallTime)
+            return;
+
+        CachePlayerReferences();
+        if (playerReference == null || elevatorLift == null || desiredLiftPosition == null || desiredLiftPosition.Length == 0)
+            return;
+
+        Vector3 floorOneWorldPosition = GetFloorWorldPosition(0);
+        Vector3 playerPosition = playerReference.transform.position;
+
+        Vector2 planarOffset = new Vector2(
+            playerPosition.x - floorOneWorldPosition.x,
+            playerPosition.z - floorOneWorldPosition.z);
+
+        if (planarOffset.sqrMagnitude > groundRecallRadius * groundRecallRadius)
+            return;
+
+        if (playerPosition.y > floorOneWorldPosition.y + groundRecallMaxHeightOffset)
+            return;
+
+        nextGroundRecallTime = Time.time + groundRecallCooldown;
+        StartCoroutine(MoveLift(0, carryPlayerWithLift: false));
+    }
+
+    private Vector3 GetFloorWorldPosition(int floorIndex)
+    {
+        Vector3 localFloorPosition = desiredLiftPosition[floorIndex];
+        Transform liftParent = elevatorLift != null ? elevatorLift.transform.parent : null;
+        return liftParent != null ? liftParent.TransformPoint(localFloorPosition) : localFloorPosition;
     }
 
     private CharacterController ReturnPlayerCC()
@@ -434,13 +486,13 @@ public class ElevatorLift : MonoBehaviour
         return playerCC;
     }
 
-    private IEnumerator MoveLift(int targetFloor)
+    private IEnumerator MoveLift(int targetFloor, bool carryPlayerWithLift)
     {
         TurnOffAllButtons();
         isMoving = true;
         Vector3 targetPosition = desiredLiftPosition[targetFloor];
         float moveSpeed = liftSpeed; // units per second
-        CharacterController playerCC = ReturnPlayerCC();
+        CharacterController playerCC = carryPlayerWithLift ? ReturnPlayerCC() : null;
         if (playerCC != null)
             playerCC.enabled = false; // Disable CharacterController to prevent physics issues during movement
 
@@ -452,7 +504,7 @@ public class ElevatorLift : MonoBehaviour
                 elevatorLift.transform.localPosition, targetPosition, moveSpeed * Time.deltaTime);
 
             Vector3 worldDelta = elevatorLift.transform.position - previousLiftWorldPosition;
-            if (playerReference != null && worldDelta.sqrMagnitude > 0.000001f)
+            if (carryPlayerWithLift && playerReference != null && worldDelta.sqrMagnitude > 0.000001f)
                 playerReference.transform.position += worldDelta;
 
             previousLiftWorldPosition = elevatorLift.transform.position;
@@ -462,7 +514,7 @@ public class ElevatorLift : MonoBehaviour
         elevatorLift.transform.localPosition = targetPosition;
 
         Vector3 finalWorldDelta = elevatorLift.transform.position - previousLiftWorldPosition;
-        if (playerReference != null && finalWorldDelta.sqrMagnitude > 0.000001f)
+        if (carryPlayerWithLift && playerReference != null && finalWorldDelta.sqrMagnitude > 0.000001f)
             playerReference.transform.position += finalWorldDelta;
 
         isMoving = false;

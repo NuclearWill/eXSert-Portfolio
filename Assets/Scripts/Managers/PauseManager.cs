@@ -270,6 +270,7 @@ public class PauseManager : Singletons.Singleton<PauseManager>
         if (InputReader.PlayerInput != null)
         {
             InputReader.PlayerInput.SwitchCurrentActionMap("UI");
+            CursorManager.RefreshPolicy();
         }
         else
         {
@@ -293,6 +294,7 @@ public class PauseManager : Singletons.Singleton<PauseManager>
         if (InputReader.PlayerInput != null)
         {
             InputReader.PlayerInput.SwitchCurrentActionMap("UI");
+            CursorManager.RefreshPolicy();
         }
     }
 
@@ -332,6 +334,7 @@ public class PauseManager : Singletons.Singleton<PauseManager>
         if (InputReader.PlayerInput != null)
         {
             InputReader.PlayerInput.SwitchCurrentActionMap("Gameplay");
+            CursorManager.RefreshPolicy();
         }
         else
         {
@@ -353,6 +356,7 @@ public class PauseManager : Singletons.Singleton<PauseManager>
         if (InputReader.PlayerInput != null)
         {
             InputReader.PlayerInput.SwitchCurrentActionMap("Gameplay");
+            CursorManager.RefreshPolicy();
         }
     }
 
