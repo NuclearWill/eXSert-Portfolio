@@ -41617,6 +41617,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7041707579189540622}
+  - component: {fileID: 938468051555782263}
+  - component: {fileID: 4563956232058821426}
   m_Layer: 0
   m_Name: Elevator
   m_TagString: Untagged
@@ -41643,6 +41645,57 @@ Transform:
   - {fileID: 7193490872571823202}
   m_Father: {fileID: 3291024520840389596}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!65 &938468051555782263
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8051155523207004718}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 1, y: 1, z: 1}
+  m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &4563956232058821426
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8051155523207004718}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1123e87265119dc4b92e91a12125471d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ElevatorLift
+  elevatorLift: {fileID: 7553936922706916508}
+  elevatorCamera: {fileID: 0}
+  elevatorUI:
+  - {fileID: 0}
+  desiredLiftPosition:
+  - {x: 0, y: 1.22, z: 0}
+  - {x: 0, y: 0, z: 0}
+  - {x: 0, y: 0, z: 0}
+  liftSpeed: 1
+  floorButtonUI:
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  - {fileID: 0}
+  backToGameplayAction: {fileID: 0}
+  firstFloorAction: {fileID: 0}
+  secondFloorAction: {fileID: 0}
+  thirdFloorAction: {fileID: 0}
 --- !u!1 &8193608230239664627
 GameObject:
   m_ObjectHideFlags: 0
@@ -71215,11 +71268,45 @@ PrefabInstance:
       propertyPath: m_Name
       value: SmallControlPanel
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 3611071323446665129, guid: 9c2ac6d0d836019459d0bfb4e3391823, type: 3}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 4094026076739977524, guid: 9c2ac6d0d836019459d0bfb4e3391823, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 8374413593792781358}
   m_SourcePrefab: {fileID: 100100000, guid: 9c2ac6d0d836019459d0bfb4e3391823, type: 3}
+--- !u!1 &4852052227625564495 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 4094026076739977524, guid: 9c2ac6d0d836019459d0bfb4e3391823, type: 3}
+  m_PrefabInstance: {fileID: 8900543112053946491}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &8374413593792781358
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4852052227625564495}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 783730fa20d4f9b4e9bf2372e82e57ab, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::PuzzleInteraction
+  _showHitbox: 0
+  _interactAnimation: {fileID: 0}
+  _interactId: 
+  _interactionSFX: {fileID: 0}
+  _interactionPrompt: Press to Interact
+  _interactInputAction: {fileID: 0}
+  requiredItemID: 
+  lockedInteractionPrompt: LOCKED
+  errorSFXClip: {fileID: 8300000, guid: 450a080ad3d152b44817e05e79d96651, type: 3}
+  onInteractionExecuted:
+    m_PersistentCalls:
+      m_Calls: []
+  consoleIndex: 0
 --- !u!4 &5196629948172067829 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3718627120876198798, guid: 9c2ac6d0d836019459d0bfb4e3391823, type: 3}
