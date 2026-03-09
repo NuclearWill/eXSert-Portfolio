@@ -32,7 +32,7 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
 
     protected static InteractionUI GetInteractionUIIfAvailable()
     {
-        return FindAnyObjectByType<InteractionUI>();
+        return InteractionUI.TryGetExisting();
     }
 
     protected static AudioSource GetInteractionSfxSourceIfAvailable()

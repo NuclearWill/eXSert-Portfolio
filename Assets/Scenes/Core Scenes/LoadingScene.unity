@@ -563,7 +563,6 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 87ed5d0f7a820d446b9550b5feabcd2b, type: 2}
   - {fileID: 11400000, guid: 7303023e5c66bda4890071ed7298234f, type: 2}
   - {fileID: 11400000, guid: b7ec257d1092db0418d09adb7dcd26c0, type: 2}
-  - {fileID: 11400000, guid: 8f85f064df7d7e44485cd169257eb2a1, type: 2}
   - {fileID: 11400000, guid: bfcc4680795260a4680df9955dc5453a, type: 2}
   propImage: {fileID: 1970855045}
   preserveAspect: 1
