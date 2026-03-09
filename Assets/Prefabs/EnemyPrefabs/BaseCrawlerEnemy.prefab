@@ -2631,6 +2631,7 @@ MonoBehaviour:
   attackActiveDuration: 0.5
   showAttackGizmo: 1
   canBeParried: 1
+  parryStunDuration: 2
   useAnimationEventAttacks: 1
   attackIndicatorPrefab: {fileID: 1202894887257364118, guid: 274be723334c80a43952e41393843fc9, type: 3}
   attackIndicatorAnchor: {fileID: 1197649947736831404}
