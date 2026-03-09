@@ -42,6 +42,8 @@ public class DoorHandler : MonoBehaviour
     private static readonly int LegacyColorProperty = Shader.PropertyToID("_Color");
     private static readonly int EmissionColorProperty = Shader.PropertyToID("_EmissionColor");
 
+    private MaterialPropertyBlock lightBulbPropertyBlock;
+
     public enum DoorState { Open, Closed }
     public enum DoorLockState { Locked, Unlocked }
     public enum DoorType { OpenUnconvential, OpenOut, OpenIn }
@@ -305,24 +307,29 @@ public class DoorHandler : MonoBehaviour
         if (meshRenderer == null)
             return;
 
-        Material[] materials = meshRenderer.materials;
+        lightBulbPropertyBlock ??= new MaterialPropertyBlock();
+
+        Material[] materials = meshRenderer.sharedMaterials;
         for (int i = 0; i < materials.Length; i++)
         {
             Material material = materials[i];
             if (material == null)
                 continue;
 
+            meshRenderer.GetPropertyBlock(lightBulbPropertyBlock, i);
+
             if (material.HasProperty(BaseColorProperty))
-                material.SetColor(BaseColorProperty, baseColor);
+                lightBulbPropertyBlock.SetColor(BaseColorProperty, baseColor);
 
             if (material.HasProperty(LegacyColorProperty))
-                material.SetColor(LegacyColorProperty, baseColor);
+                lightBulbPropertyBlock.SetColor(LegacyColorProperty, baseColor);
 
             if (material.HasProperty(EmissionColorProperty))
             {
-                material.EnableKeyword("_EMISSION");
-                material.SetColor(EmissionColorProperty, emissionColor);
+                lightBulbPropertyBlock.SetColor(EmissionColorProperty, emissionColor);
             }
+
+            meshRenderer.SetPropertyBlock(lightBulbPropertyBlock, i);
         }
     }
 
