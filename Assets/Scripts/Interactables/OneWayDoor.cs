@@ -3,7 +3,7 @@ using System.Collections;
 using System.Collections.Generic; 
 using UnityEngine.Serialization;
 
-public class OneWayDoor : DoorHandler
+public class OneWayDoor : MonoBehaviour
 {
 
     [System.Serializable]
@@ -81,6 +81,8 @@ public class OneWayDoor : DoorHandler
 
     private Coroutine closeAfterPassRoutine;
 
+    private DoorHandler thisDoorHandler;
+
     private void Awake()
     {
         if (closeAndLockTrigger != null)
@@ -102,6 +104,10 @@ public class OneWayDoor : DoorHandler
             doorsByScenePair[pair] = this;
         }
 
+        if (thisDoorHandler == null)
+        {
+            thisDoorHandler = this.GetComponent<DoorHandler>();
+        }
     }
 
     private void OnDestroy()
@@ -117,12 +123,6 @@ public class OneWayDoor : DoorHandler
             doorsByScenePair.Remove(pair);
     }
 
-
-
-    public override IEnumerator NotAllowReentryCoroutine()
-    {
-        yield break;
-    }
 
     private void OnTriggerEnter(Collider other)
     {
@@ -147,7 +147,7 @@ public class OneWayDoor : DoorHandler
         if (!IsPlayerCollider(other))
             return;
 
-        if (!isOpened || oneWayDoorLocked)
+        if (!thisDoorHandler.isOpened || oneWayDoorLocked)
             return;
 
         if (closeAfterPassRoutine != null)
@@ -162,7 +162,7 @@ public class OneWayDoor : DoorHandler
         if (delay > 0f)
             yield return new WaitForSeconds(delay);
 
-        if (isOpened && !oneWayDoorLocked)
+        if (thisDoorHandler.isOpened && !oneWayDoorLocked)
         {
             CloseControlledDoorHandlersOrSelf();
             oneWayDoorLocked = true;
@@ -185,7 +185,7 @@ public class OneWayDoor : DoorHandler
             return;
         }
 
-        CloseDoor();
+        thisDoorHandler.CloseDoor();
     }
 
     private DoorInteractions ResolveControllingDoorInteraction()
@@ -202,7 +202,7 @@ public class OneWayDoor : DoorHandler
         for (int i = 0; i < interactions.Length; i++)
         {
             DoorInteractions interaction = interactions[i];
-            if (interaction != null && interaction.ContainsDoorHandler(this))
+            if (interaction != null && interaction.ContainsDoorHandler(this.thisDoorHandler))
             {
                 controllingDoorInteraction = interaction;
                 return interaction;
