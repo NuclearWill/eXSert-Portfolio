@@ -63,6 +63,9 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     [SerializeField, Tooltip("Determines whether their attack can be parried")]
     public bool canBeParried = true;
 
+    [SerializeField, Min(0f), Tooltip("How long this enemy is stunned after its attack is parried.")]
+    private float parryStunDuration = 0.75f;
+
     [SerializeField, Tooltip("When true, hitbox enable/disable is controlled by animation events (Attack, AttackEnd). When false, uses timer-based hitbox duration.")]
     public bool useAnimationEventAttacks = false;
 
@@ -120,6 +123,10 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
 
     private bool deathSequenceTriggered;
     private Coroutine deathFallbackRoutine;
+    private Coroutine parryStunCoroutine;
+    private bool isParryStunned;
+    private bool isQueuedAttackActive;
+    private bool suppressAnimationEventDamageUntilAttackEnds;
 
     // Cached animator parameter checks to avoid allocations from repeated animator.parameters access
     private bool _hasIsMovingParam;
@@ -210,6 +217,7 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     /// </summary>
     public bool IsAlive => currentHealth > 0f && gameObject != null && gameObject.activeInHierarchy;
     public override bool isAlive => IsAlive;
+    public bool IsParryStunned => isParryStunned;
     
     /// <summary>
     /// Returns the GameObject for the queue manager.
@@ -232,6 +240,7 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     /// </summary>
     public void NotifyAttackBegin()
     {
+        isQueuedAttackActive = true;
         EnemyAttackQueueManager.Instance?.BeginAttack(this);
     }
     
@@ -241,7 +250,54 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     /// </summary>
     public void NotifyAttackEnd()
     {
+        if (!isQueuedAttackActive)
+            return;
+
+        isQueuedAttackActive = false;
         EnemyAttackQueueManager.Instance?.FinishAttack(this);
+    }
+
+    public virtual void ApplyParryStun(float duration = -1f)
+    {
+        if (!IsAlive || !gameObject.activeInHierarchy)
+            return;
+
+        if (duration <= 0f)
+            duration = parryStunDuration;
+
+        if (parryStunCoroutine != null)
+            StopCoroutine(parryStunCoroutine);
+
+        parryStunCoroutine = StartCoroutine(ParryStunRoutine(duration));
+    }
+
+    private IEnumerator ParryStunRoutine(float duration)
+    {
+        isParryStunned = true;
+        suppressAnimationEventDamageUntilAttackEnds = true;
+
+        DisableAttackHitbox();
+        PlayHitAnim();
+        PlaySFXOnHit();
+
+        if (agent != null && agent.enabled)
+        {
+            agent.isStopped = true;
+            agent.ResetPath();
+        }
+
+        NotifyAttackEnd();
+
+        yield return WaitForSecondsCache.Get(duration);
+
+        isParryStunned = false;
+        suppressAnimationEventDamageUntilAttackEnds = false;
+        animEventDamageDealtThisAttack = false;
+
+        if (agent != null && agent.enabled && IsAlive)
+            agent.isStopped = false;
+
+        parryStunCoroutine = null;
     }
     
     /// <summary>
@@ -816,6 +872,7 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
     public virtual void Attack()
     {
         if (!useAnimationEventAttacks) return;
+        if (isParryStunned || suppressAnimationEventDamageUntilAttackEnds) return;
         
         EnableAttackHitbox();
         DealDamageOnAnimationEvent();
@@ -833,6 +890,7 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
         if (!useAnimationEventAttacks) return;
         
         DisableAttackHitbox();
+        suppressAnimationEventDamageUntilAttackEnds = false;
         animEventDamageDealtThisAttack = false; // Reset for next attack
 #if UNITY_EDITOR
         EnemyBehaviorDebugLogBools.Log("BaseEnemy", $"[{name}] Animation Event: AttackEnd - Hitbox DISABLED");
@@ -861,6 +919,7 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
                 // Check for parry
                 if (Utilities.Combat.CombatManager.isParrying && canBeParried)
                 {
+                    ApplyParryStun();
                     Utilities.Combat.CombatManager.ParrySuccessful();
 #if UNITY_EDITOR
                     EnemyBehaviorDebugLogBools.Log("BaseEnemy", $"[{name}] Attack parried by player.");

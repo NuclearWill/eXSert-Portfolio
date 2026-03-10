@@ -15,6 +15,15 @@ public class InteractionUI : Singleton<InteractionUI>
     public TMP_Text _hintDescriptionText;
     public GameObject hintUI;
 
+    public static InteractionUI TryGetExisting()
+    {
+        if (isApplicationQuitting)
+            return null;
+
+        InteractionUI[] interactionUIs = FindObjectsByType<InteractionUI>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        return interactionUIs.Length > 0 ? interactionUIs[0] : null;
+    }
+
     protected override void Awake()
     {
         base.Awake();

@@ -593,6 +593,9 @@ public static class SceneLoader
     {
         Initialize();
 
+        if (SoundManager.Instance != null)
+            yield return SoundManager.Instance.FadeOutGameplayAudio(0.5f);
+
         SceneAsset mainMenuAsset = (SceneAsset)MAIN_MENU_SCENE;
         if (mainMenuAsset == null)
         {
