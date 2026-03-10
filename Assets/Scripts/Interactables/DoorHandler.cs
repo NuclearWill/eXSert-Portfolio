@@ -31,7 +31,7 @@ public abstract class DoorHandler : MonoBehaviour
     // enums
     public enum DoorState { Open, Closed }
     public enum DoorLockState { Locked, Unlocked }
-    public enum OneWayDoor { No, Yes}
+    public enum IsDoorOneWay { No, Yes}
     
 
     [Header("Door State & Type")]
@@ -39,7 +39,7 @@ public abstract class DoorHandler : MonoBehaviour
     public DoorState currentDoorState;
     [Tooltip("Current lock state of the door (Locked/Unlocked)")]
     public DoorLockState doorLockState = DoorLockState.Locked;
-    public OneWayDoor oneWayDoor = OneWayDoor.No;
+    public IsDoorOneWay isDoorOneWay = IsDoorOneWay.No;
 
 
     [Header("Door Movement Settings")]
@@ -103,12 +103,25 @@ public abstract class DoorHandler : MonoBehaviour
     private static Color DefaultUnlockedBulbEmissionColor => ColorFromHsv(145f, 100f, 13f);
     private static Color DefaultUnlockedPointLightColor => ColorFromHex("44A659");
 
+    private OneWayDoor thisOneWayDoor;
+
     protected virtual void Awake()
     {
         doorPosOrigin = this.transform.localPosition;
         doorRotOrigin = this.transform.localRotation;
         
         StartingLightColor();
+
+        thisOneWayDoor = this.GetComponent<OneWayDoor>();
+
+        if (thisOneWayDoor == null)
+        {
+            Debug.Log("This is not a one way door.");
+        }
+        else
+        {
+            DontDestroyOnLoad(this.gameObject);
+        }
     }
 
     private void OnValidate()
@@ -130,15 +143,8 @@ public abstract class DoorHandler : MonoBehaviour
                 break;
             case DoorState.Closed:
                 OpenDoor();
-                StartCoroutine(NotAllowReentryCoroutine());
                 break;
         }
-    }
-
-    public virtual IEnumerator NotAllowReentryCoroutine()
-    {
-        // Default doors do not use one-way re-entry behavior.
-        yield break;
     }
 
     public void UnlockDoor()
