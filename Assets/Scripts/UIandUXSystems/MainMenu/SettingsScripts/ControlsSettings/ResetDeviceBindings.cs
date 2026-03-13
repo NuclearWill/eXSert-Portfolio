@@ -9,6 +9,8 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 public class ResetDeviceBindings : MonoBehaviour
 {
+    public static bool controlsAreOpen = false;
+
     [SerializeField] private InputActionAsset _inputActions;
     [SerializeField] private InputActionReference _resetBindingsActionReference;
 
@@ -25,6 +27,8 @@ public class ResetDeviceBindings : MonoBehaviour
         {
             Debug.LogWarning($"Reset Bindings Input Action Reference is not set in the inspector. Reset bindings button won't work.");
         }
+
+        controlsAreOpen = true;
     }
 
     void OnDisable()
@@ -33,6 +37,7 @@ public class ResetDeviceBindings : MonoBehaviour
         {
             _resetBindingsActionReference.action.performed -= ctx => ResetControlSchemeBinding();
         }
+        controlsAreOpen = false;
     }
 
 
