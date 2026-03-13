@@ -166,7 +166,7 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
 
     public void OnInteractButtonPressed()
     {
-        if (!isPlayerNearby || !interactable || PlayerMovement.isDashingFlag)
+        if (!isPlayerNearby || !interactable || PlayerMovement.isDashingFlag && InputReader.IsGameplayInputBlocked)
         {
             Debug.Log($"Interaction attempted with {gameObject.name}, but conditions not met. isPlayerNearby: {isPlayerNearby}, interactable: {interactable}, isDashing: {PlayerMovement.isDashingFlag}");
             return;
@@ -206,7 +206,7 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
     protected virtual void OnTriggerEnter(Collider other)
     {
         // Ensure the collider belongs to the player character, checking the root object for the "Player" tag to account for child colliders.
-        if (!other.transform.root.CompareTag("Player"))
+        if (!other.transform.root.CompareTag("Player") && !interactable)
             return;
 
         Debug.Log($"[InteractionManager] Player entered interaction zone of {gameObject.name}. Setting isPlayerNearby true.");

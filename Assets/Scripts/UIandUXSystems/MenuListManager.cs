@@ -78,7 +78,7 @@ public class MenuListManager : MonoBehaviour
             menusToManage.Insert(0, menuToAdd);
 
             if(menuToAdd != firstMenuToOpen && menuToAdd != canvas)
-                fadeMenus.StartCoroutine(fadeMenus.FadeMenu(menuToAdd, fadeMenus.fadeDuration, true));
+                fadeMenus.FadeMenuSafe(menuToAdd, fadeMenus.fadeDuration, true);
 
             if(menuToAdd.tag != "LogUI" && menuToAdd.tag != "DiaryUI")
                 SetAsLastSibling(menuToAdd);
@@ -125,7 +125,7 @@ public class MenuListManager : MonoBehaviour
 
         FadeMenus fadeMenus = this.GetComponent<FadeMenus>();
         if (currentTop != null)
-            fadeMenus.StartCoroutine(fadeMenus.FadeMenu(currentTop, fadeMenus.fadeDuration, false));
+            fadeMenus.FadeMenuSafe(currentTop, fadeMenus.fadeDuration, false);
 
         menusToManage.RemoveAt(0);
         

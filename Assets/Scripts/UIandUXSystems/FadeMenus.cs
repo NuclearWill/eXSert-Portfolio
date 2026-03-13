@@ -5,6 +5,30 @@ public class FadeMenus : MonoBehaviour
 {
     [SerializeField] public float fadeDuration = 0.25f;
 
+    private readonly System.Collections.Generic.Dictionary<GameObject, Coroutine> activeFades = new();
+
+    public void FadeMenuSafe(GameObject menu, float duration, bool turnOn)
+    {
+        if (menu == null) return;
+        // Stop any existing fade coroutine for this menu
+        if (activeFades.TryGetValue(menu, out var running))
+        {
+            if (running != null)
+                StopCoroutine(running);
+            activeFades.Remove(menu);
+        }
+        // Start and track the new fade coroutine
+        Coroutine c = StartCoroutine(FadeMenuRoutine(menu, duration, turnOn));
+        activeFades[menu] = c;
+    }
+
+    private IEnumerator FadeMenuRoutine(GameObject menu, float duration, bool turnOn)
+    {
+        yield return FadeMenu(menu, duration, turnOn);
+        // Remove from active fades after done
+        activeFades.Remove(menu);
+    }
+
     public IEnumerator FadeMenu(GameObject menu, float duration, bool turnOn)
     {
         if (menu == null)

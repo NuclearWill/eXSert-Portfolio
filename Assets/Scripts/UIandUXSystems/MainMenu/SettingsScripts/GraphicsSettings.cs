@@ -9,6 +9,7 @@ using TMPro;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using UnityEngine.Rendering.Universal;
+using Unity.VisualScripting;
 
 public class GraphicsSettings : MonoBehaviour
 {
@@ -26,7 +27,6 @@ public class GraphicsSettings : MonoBehaviour
     public Volume globalVolume;
     internal LiftGammaGain liftGammaGain;
     internal float brightnessLevel;
-    [SerializeField] private Slider staticSlider = null;
     
 
     [Header("Display Mode Settings")]
@@ -203,10 +203,6 @@ public class GraphicsSettings : MonoBehaviour
     {
         PlayerPrefs.SetFloat("masterBrightness", brightnessLevel);
 
-        // Update static/read-only brightness slider to reflect the applied value
-        if (staticSlider != null)
-            staticSlider.value = brightnessLevel;
-
         PlayerPrefs.SetInt("masterFPS", fpsLevel);
         Application.targetFrameRate = fpsLevel;
 
@@ -229,15 +225,15 @@ public class GraphicsSettings : MonoBehaviour
             brightnessSlider.value = defaultBrightness;
         SetBrightness(defaultBrightness);
 
-        Application.targetFrameRate = 30;
-        fpsText.text = "30";
-        fpsLevel = 30;
+        Application.targetFrameRate = 60;
+        fpsText.text = "60";
+        fpsLevel = 60;
 
         isMotionBlur = true;
         motionBlurText.text = "On";
 
-        isCameraShake = false;
-        cameraShakeText.text = "Off";
+        isCameraShake = true;
+        cameraShakeText.text = "On";
 
         isResolution1920x1080 = true;
         resolutionText.text = "1920x1080";
