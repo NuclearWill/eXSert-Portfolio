@@ -227,8 +227,27 @@ public class CranePuzzle : PuzzlePart
         return null;
     }
 
+    private void HandleGameplayMap(bool enable)
+    {
+        if (InputReader.PlayerInput == null)
+            return;
+
+        var gameplayMap = InputReader.PlayerInput.actions.FindActionMap("Gameplay");
+        if (gameplayMap != null)
+        {
+            if (enable) gameplayMap.Enable();
+            else gameplayMap.Disable();
+        }
+        else
+        {
+            Debug.LogError($"[CranePuzzle] Could not find action map 'Gameplay' to {(enable ? "enable" : "disable")} during puzzle setup.");
+        }
+    }
+
     private int SetupCranePuzzle()
     {
+        HandleGameplayMap(false); // Disable gameplay map during puzzle
+
         CacheCraneBoundaries();
         CacheCranePartStartPositions();
         CacheCraneAxisSettings();
@@ -236,6 +255,7 @@ public class CranePuzzle : PuzzlePart
         SetupCraneUI(); // Sets up the crane's custom UI
 
         SwapActionMaps(true); // Switches player to crane controls
+
 
         if (runtimeCraneMoveAction == null || runtimeConfirmAction == null || runtimeEscapeAction == null)
         {
@@ -431,6 +451,7 @@ public class CranePuzzle : PuzzlePart
         
     {
         ReleasePuzzleControl(stopRunningCoroutines: true, clearAutomationState: true);
+        HandleGameplayMap(true); // Re-enable gameplay map after puzzle
         isCompleted = false;
     }
 

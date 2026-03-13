@@ -15,13 +15,6 @@ public class AudioSettings : MonoBehaviour
     [SerializeField] private GameObject volumeSettingsContainer;
 
     [Space(20)]
-    [Header("Static Sliders")]
-    [SerializeField] private Slider staticMasterVolumeSlider = null;
-    [SerializeField] private Slider staticMusicVolumeSlider = null;
-    [SerializeField] private Slider staticSfxVolumeSlider = null;
-    [SerializeField] private Slider staticVoiceVolumeSlider = null;
-
-    [Space(20)]
     [Header("Volume Settings")]
     [SerializeField] private float defaultVolume = 0.5f;
 
@@ -56,7 +49,6 @@ public class AudioSettings : MonoBehaviour
             _voiceVolumeRaw = defaultVolume;
             ApplyScaledVolumes();
         }
-        SetStaticSlidersToCurrentValues();
         SetCurrentValuesOnSliders();
     }
 
@@ -154,20 +146,6 @@ public class AudioSettings : MonoBehaviour
         }
     }
 
-    private void SetStaticSlidersToCurrentValues()
-    {
-        if (staticMasterVolumeSlider != null)
-            staticMasterVolumeSlider.value = SoundManager.Instance.masterSource.volume;
-
-        if (staticMusicVolumeSlider != null)
-            staticMusicVolumeSlider.value = _musicVolumeRaw;;
-
-        if (staticSfxVolumeSlider != null)
-            staticSfxVolumeSlider.value = _sfxVolumeRaw;
-
-        if (staticVoiceVolumeSlider != null)
-            staticVoiceVolumeSlider.value = _voiceVolumeRaw;
-    }
 
     private void SetCurrentValuesOnSliders()
     {
@@ -193,8 +171,6 @@ public class AudioSettings : MonoBehaviour
         PlayerPrefs.SetFloat("musicVolume", _musicVolumeRaw);
         PlayerPrefs.SetFloat("voiceVolume", _voiceVolumeRaw);
 
-        SetStaticSlidersToCurrentValues();
-
         PlayerPrefs.Save();
 
     }
@@ -202,6 +178,7 @@ public class AudioSettings : MonoBehaviour
     //Resets settings
     public void ResetButton()
     {
+
         _masterVolumeRaw = defaultVolume;
         _musicVolumeRaw = defaultVolume;
         _sfxVolumeRaw = defaultVolume;
