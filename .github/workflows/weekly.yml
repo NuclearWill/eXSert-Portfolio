@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: '0 3 * * 0'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Windows Build - main
@@ -23,6 +26,11 @@ jobs:
           key: Library-Main-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
           restore-keys: Library-Main-
 
+      - name: Install video codec dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg libgstreamer1.0-0 libgstreamer-plugins-base1.0-0
+
       - name: Build project
         uses: game-ci/unity-builder@v4
         env:
@@ -37,6 +45,13 @@ jobs:
       - name: Zip the build
         run: zip -r eXSert-main-${{ github.run_number }}.zip build/StandaloneWindows64/
 
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git tag weekly-${{ github.run_number }}
+          git push origin weekly-${{ github.run_number }}
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -44,6 +59,6 @@ jobs:
           name: "Weekly Build #${{ github.run_number }}"
           body: "Automated weekly build from the main branch."
           files: eXSert-main-${{ github.run_number }}.zip
-          prerelease: false  # weekly main builds are more stable
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
