@@ -12,5 +12,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a20a6b8dfe4d834792c580bd449ae05, type: 3}
   m_Name: Opening Cutscene
   m_EditorClassIdentifier: Assembly-CSharp::Cutscene
-  videoClip: {fileID: 32900000, guid: 4739ea88a78f7264c9c340afa4fdb3e7, type: 3}
-  videoName: Opening Cutscene
+  videoClip: {fileID: 32900000, guid: 85d370ad41807144a9c770199eeeff7a, type: 3}

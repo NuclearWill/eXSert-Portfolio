@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: '0 3 * * 0'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Windows Build - main
