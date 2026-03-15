@@ -18,6 +18,7 @@ jobs:
         with:
           ref: Development
           lfs: false
+          fetch-depth: 0
 
       - name: Cache Unity Library
         uses: actions/cache@v3
@@ -31,6 +32,42 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y ffmpeg libgstreamer1.0-0 libgstreamer-plugins-base1.0-0
 
+      - name: Gather today's commits
+        id: commits
+        run: |
+          SINCE=$(date -u '+%Y-%m-%dT00:00:00Z')
+          LOG=$(git log --since="$SINCE" --pretty=format:"- %s (%an)" origin/Development)
+          if [ -z "$LOG" ]; then
+            LOG="- No new commits today."
+          fi
+          echo "COMMIT_LOG<<EOF" >> $GITHUB_ENV
+          echo "$LOG" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
+      - name: Summarize commits with Gemini
+        id: summary
+        run: |
+          PAYLOAD=$(jq -n \
+            --arg log "$COMMIT_LOG" \
+            '{
+              contents: [{
+                parts: [{
+                  text: ("You are a changelog writer for a game development project called eXSert. Given the following git commits from today, write a short, friendly summary (3-6 bullet points) of what was added, fixed, or changed. Group related changes together. Do not repeat commit messages verbatim — paraphrase them clearly. Use plain language a playtester would understand.\n\nCommits:\n" + $log)
+                }]
+              }]
+            }')
+
+          RESPONSE=$(curl -s \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${{ secrets.GEMINI_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+
+          SUMMARY=$(echo "$RESPONSE" | jq -r '.candidates[0].content.parts[0].text // "Could not generate summary."')
+
+          echo "AI_SUMMARY<<EOF" >> $GITHUB_ENV
+          echo "$SUMMARY" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+
       - name: Build project
         uses: game-ci/unity-builder@v4
         env:
@@ -43,22 +80,74 @@ jobs:
           unityVersion: 6000.2.15f1
 
       - name: Zip the build
-        run: zip -r eXSert-dev-${{ github.run_number }}.zip build/StandaloneWindows64/
+        run: |
+          BUILD_DATE=$(date -u '+%Y-%m-%d')
+          echo "BUILD_DATE=${BUILD_DATE}" >> $GITHUB_ENV
+          zip -r eXSert-daily-${BUILD_DATE}.zip build/StandaloneWindows64/
+          echo "ZIP_NAME=eXSert-daily-${BUILD_DATE}.zip" >> $GITHUB_ENV
 
-      - name: Create and push tag
+      - name: Force-update DailyBuild tag
         run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git tag nightly-${{ github.run_number }}
-          git push origin nightly-${{ github.run_number }}
+          git tag -f DailyBuild
+          git push origin DailyBuild --force
 
-      - name: Create GitHub Release
+      - name: Delete existing DailyBuild release (if any)
+        run: |
+          RELEASE_ID=$(gh release view DailyBuild --json id -q '.id' 2>/dev/null || echo "")
+          if [ -n "$RELEASE_ID" ]; then
+            gh release delete DailyBuild --yes
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create DailyBuild release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: nightly-${{ github.run_number }}
-          name: "Nightly Build #${{ github.run_number }}"
-          body: "Automated nightly build from the Development branch."
-          files: eXSert-dev-${{ github.run_number }}.zip
-          prerelease: true
+          tag_name: DailyBuild
+          name: "Daily Build — ${{ env.BUILD_DATE }}"
+          body: |
+            ## Daily Build — ${{ env.BUILD_DATE }}
+
+            Automated daily build from the **Development** branch.
+            This release is automatically replaced every 24 hours.
+
+            ---
+
+            ## What's new today
+
+            ${{ env.AI_SUMMARY }}
+
+            ---
+
+            ## Raw commits
+
+            ${{ env.COMMIT_LOG }}
+          files: ${{ env.ZIP_NAME }}
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup-old-daily:
+    name: Delete Previous Daily Build Asset
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Wait 24 hours
+        run: sleep 86400
+
+      - name: Delete DailyBuild release if still old
+        run: |
+          RELEASE_DATE=$(gh release view DailyBuild --json createdAt -q '.createdAt' 2>/dev/null || echo "")
+          if [ -n "$RELEASE_DATE" ]; then
+            RELEASE_EPOCH=$(date -d "$RELEASE_DATE" +%s)
+            NOW_EPOCH=$(date +%s)
+            AGE=$(( NOW_EPOCH - RELEASE_EPOCH ))
+            if [ "$AGE" -ge 82800 ]; then
+              gh release delete DailyBuild --yes || true
+              git push origin :refs/tags/DailyBuild || true
+            fi
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
