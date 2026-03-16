@@ -349,7 +349,10 @@ public class PauseManager : Singletons.Singleton<PauseManager>
     /// </summary>
     public void HideMenusForSceneTransition()
     {
-        // Do NOT change the coordinator's timescale state here — this method must only hide UI and release local input blocking.
+        // Release this menu's pause ownership so restart transitions do not leave the game paused.
+        PauseCoordinator.ReleaseTimeScale(GameplayInputBlockOwnerId);
+
+        // Hide pause/navigation UI and release local gameplay input blocking.
         InputReader.ReleaseGameplayInputBlock(GameplayInputBlockOwnerId);
         currentActiveMenu = ActiveMenu.None;
         HideAllMenus();
