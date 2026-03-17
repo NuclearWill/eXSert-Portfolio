@@ -7882,8 +7882,10 @@ MonoBehaviour:
   layerMask:
     serializedVersion: 2
     m_Bits: 8
-  dashDistance: 6
-  dashDuration: 0.5
+  dashDistance: 3
+  dashDuration: 0.2
+  maxDashCharges: 2
+  dashChainDelay: 0.15
   dashCoolDown: 0.5
   defaultExternalStunDuration: 0.35
   enableKnockbackWallCollision: 1
