@@ -160,8 +160,14 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField, Range(0.05f, 1f)]
     private float dashDuration = 0.25f;
 
-    [SerializeField]
-    private float dashCoolDown = 0.6f;
+    [SerializeField, Min(1)]
+    private int maxDashCharges = 2;
+
+    [SerializeField, Range(0f, 0.35f)]
+    private float dashChainDelay = 0.1f;
+
+    [SerializeField, Range(0f, 2f)]
+    private float dashCoolDown = 0.5f;
 
     [Header("External Reactions")]
     [SerializeField, Range(0.05f, 1.5f)]
@@ -214,8 +220,9 @@ public class PlayerMovement : MonoBehaviour
 
     #endregion
 
-    private bool canDash = true;
     private bool isDashing;
+    private int dashChargesRemaining;
+    private float nextDashAllowedTime;
     private Vector3 dashVelocity = Vector3.zero;
     private bool wasGrounded;
     private float jogToSprintTimer;
@@ -237,7 +244,10 @@ public class PlayerMovement : MonoBehaviour
     private bool airDashInProgress;
     private bool dashForceStop;
     private Coroutine dashRoutine;
+    private Coroutine dashRechargeRoutine;
     private bool dashInputLockOwned;
+    private bool currentDashUsesCharges;
+    private float dashStateExpectedEndTime = -1f;
     private bool hasCombatIdleController;
     private PlayerCombatIdleController combatIdleController;
     private float aerialAttackLockTimer;
@@ -370,10 +380,13 @@ public class PlayerMovement : MonoBehaviour
         //airborneStartHeight = transform.position.y;
         airDashAvailable = true;
         suspendGravityDuringDash = false;
+        ResetDashCharges();
     }
     private void OnEnable()
     {
         PlayerAttackManager.OnAttack += AerialAttackHop;
+        if (dashChargesRemaining <= 0)
+            ResetDashCharges();
     }
 
     private void OnDisable()
@@ -385,6 +398,12 @@ public class PlayerMovement : MonoBehaviour
         {
             try { StopCoroutine(dashRoutine); } catch { }
             dashRoutine = null;
+        }
+
+        if (dashRechargeRoutine != null)
+        {
+            try { StopCoroutine(dashRechargeRoutine); } catch { }
+            dashRechargeRoutine = null;
         }
 
         if (externalStunRoutine != null)
@@ -405,6 +424,8 @@ public class PlayerMovement : MonoBehaviour
             ReleaseExternalStunInputLock();
         }
 
+        isDashingFlag = false;
+
         // Clear static instance reference if it pointed to this instance
         if (s_instance == this)
             s_instance = null;
@@ -419,6 +440,12 @@ public class PlayerMovement : MonoBehaviour
         {
             try { StopCoroutine(dashRoutine); } catch { }
             dashRoutine = null;
+        }
+
+        if (dashRechargeRoutine != null)
+        {
+            try { StopCoroutine(dashRechargeRoutine); } catch { }
+            dashRechargeRoutine = null;
         }
 
         if (externalStunRoutine != null)
@@ -436,12 +463,16 @@ public class PlayerMovement : MonoBehaviour
         if (externalStunOwnsInput)
             ReleaseExternalStunInputLock();
 
+        isDashingFlag = false;
+
         if (s_instance == this)
             s_instance = null;
     }
 
     private void Update()
     {
+        EnsureDashStateConsistency();
+
         if (InputReader.JumpTriggered)
             OnJump();
 
@@ -685,7 +716,10 @@ public class PlayerMovement : MonoBehaviour
 
     private void OnDash()
     {
-        if (!canDash)
+        if (dashChargesRemaining <= 0)
+            return;
+
+        if (Time.time < nextDashAllowedTime)
             return;
 
         if (CombatManager.isGuarding)
@@ -703,7 +737,7 @@ public class PlayerMovement : MonoBehaviour
 
         CancelPlungeState();
 
-        canDash = false;
+        dashChargesRemaining = Mathf.Max(0, dashChargesRemaining - 1);
         isDashingFlag = true;
 
         Vector3 dashDirection = (forward * InputReader.MoveInput.y) + (right * InputReader.MoveInput.x);
@@ -739,7 +773,7 @@ public class PlayerMovement : MonoBehaviour
                 dashDistance,
                 dashDuration,
                 lockInput: true,
-                respectCooldown: true,
+                useDashCharges: true,
                 onStart: () =>
                 {
                     if (characterController.isGrounded)
@@ -764,7 +798,7 @@ public class PlayerMovement : MonoBehaviour
         float distance,
         float duration,
         bool lockInput,
-        bool respectCooldown,
+        bool useDashCharges,
         Action onStart,
         Action onComplete)
     {
@@ -772,6 +806,8 @@ public class PlayerMovement : MonoBehaviour
         direction = direction.sqrMagnitude > 0.0001f ? direction.normalized : transform.forward;
 
         isDashing = true;
+        currentDashUsesCharges = useDashCharges;
+        dashStateExpectedEndTime = Time.unscaledTime + duration + 0.2f;
         airDashInProgress = isAirDash;
         dashVelocity = direction * (distance / duration);
         currentMovement.x = 0f;
@@ -807,6 +843,7 @@ public class PlayerMovement : MonoBehaviour
         suspendGravityDuringDash = false;
         dashForceStop = false;
         dashRoutine = null;
+        dashStateExpectedEndTime = -1f;
 
         if (lockInput && dashInputLockOwned)
         {
@@ -816,11 +853,54 @@ public class PlayerMovement : MonoBehaviour
 
         onComplete?.Invoke();
 
-        if (respectCooldown)
-        {
-            yield return new WaitForSeconds(dashCoolDown);
-            canDash = true;
+        if (useDashCharges)
+            HandleDashRecovery();
+        else
             isDashingFlag = false;
+
+        currentDashUsesCharges = false;
+    }
+
+    private void HandleDashRecovery()
+    {
+        isDashingFlag = false;
+
+        if (dashChargesRemaining > 0)
+        {
+            nextDashAllowedTime = Time.time + Mathf.Max(0f, dashChainDelay);
+            return;
+        }
+
+        if (dashRechargeRoutine != null)
+        {
+            StopCoroutine(dashRechargeRoutine);
+            dashRechargeRoutine = null;
+        }
+
+        dashRechargeRoutine = StartCoroutine(DashRechargeCoroutine());
+    }
+
+    private IEnumerator DashRechargeCoroutine()
+    {
+        float rechargeDelay = Mathf.Max(0f, dashCoolDown);
+        if (rechargeDelay > 0f)
+            yield return new WaitForSeconds(rechargeDelay);
+
+        dashChargesRemaining = Mathf.Max(1, maxDashCharges);
+        nextDashAllowedTime = 0f;
+        dashRechargeRoutine = null;
+    }
+
+    private void ResetDashCharges()
+    {
+        dashChargesRemaining = Mathf.Max(1, maxDashCharges);
+        nextDashAllowedTime = 0f;
+        isDashingFlag = false;
+
+        if (dashRechargeRoutine != null)
+        {
+            StopCoroutine(dashRechargeRoutine);
+            dashRechargeRoutine = null;
         }
     }
 
@@ -843,7 +923,7 @@ public class PlayerMovement : MonoBehaviour
                 distance,
                 duration,
                 lockInput: true,
-                respectCooldown: false,
+                useDashCharges: false,
                 onStart,
                 onComplete));
 
@@ -852,13 +932,18 @@ public class PlayerMovement : MonoBehaviour
 
     private void ForceStopDashImmediate(bool relinquishInputLock = false)
     {
+        if (relinquishInputLock)
+        {
+            if (dashInputLockOwned)
+                InputReader.inputBusy = false;
+
+            dashInputLockOwned = false;
+        }
+
         if (!isDashing)
             return;
 
         dashForceStop = true;
-
-        if (relinquishInputLock)
-            dashInputLockOwned = false;
     }
 
     public bool TryTriggerLauncherJump()
@@ -866,15 +951,12 @@ public class PlayerMovement : MonoBehaviour
         if (!isDashing || characterController == null || !characterController.isGrounded)
             return false;
 
-        ForceStopDashImmediate(relinquishInputLock: true);
+        AbortDashState(releaseInputLock: true, stopCoroutine: true, applyDashRecovery: true);
 
         Vector3 forwardDir = transform.forward;
         currentMovement.x = forwardDir.x * launcherForwardVelocity;
         currentMovement.z = forwardDir.z * launcherForwardVelocity;
         currentMovement.y = launcherJumpVelocity;
-
-        dashVelocity = Vector3.zero;
-        isDashing = false;
 
         suspendGravityDuringDash = false;
         airDashInProgress = false;
@@ -882,6 +964,51 @@ public class PlayerMovement : MonoBehaviour
         fallingAnimationPlaying = false;
 
         return true;
+    }
+
+    private void EnsureDashStateConsistency()
+    {
+        if (!isDashing)
+            return;
+
+        bool coroutineMissing = dashRoutine == null;
+        bool timedOut = dashStateExpectedEndTime > 0f && Time.unscaledTime > dashStateExpectedEndTime;
+
+        if (!coroutineMissing && !timedOut)
+            return;
+
+        Debug.LogWarning("[PlayerMovement] Dash state desynced. Forcing dash reset to avoid softlock.");
+        AbortDashState(releaseInputLock: true, stopCoroutine: false, applyDashRecovery: true);
+    }
+
+    private void AbortDashState(bool releaseInputLock, bool stopCoroutine, bool applyDashRecovery)
+    {
+        bool shouldRecoverDash = applyDashRecovery && currentDashUsesCharges;
+
+        if (stopCoroutine && dashRoutine != null)
+        {
+            try { StopCoroutine(dashRoutine); } catch { }
+            dashRoutine = null;
+        }
+
+        dashVelocity = Vector3.zero;
+        isDashing = false;
+        isDashingFlag = false;
+        dashForceStop = false;
+        suspendGravityDuringDash = false;
+        airDashInProgress = false;
+        dashStateExpectedEndTime = -1f;
+
+        if (releaseInputLock && dashInputLockOwned)
+        {
+            InputReader.inputBusy = false;
+            dashInputLockOwned = false;
+        }
+
+        currentDashUsesCharges = false;
+
+        if (shouldRecoverDash)
+            HandleDashRecovery();
     }
 
     public void ApplyExternalStun(float duration)
@@ -1067,8 +1194,9 @@ public class PlayerMovement : MonoBehaviour
         
         Vector3 finalVelocity = horizontalMovement + Vector3.up * currentMovement.y;
 
-        // move the character controller
-        characterController.Move(finalVelocity * Time.deltaTime);
+        // Apply movement using the simulation timestep (FixedUpdate-safe) to avoid dash jitter.
+        float movementDeltaTime = Time.inFixedTimeStep ? Time.fixedDeltaTime : Time.deltaTime;
+        characterController.Move(finalVelocity * movementDeltaTime);
 
         // reset vertical movement when grounded
         if (characterController.isGrounded && currentMovement.y < 0)
@@ -1468,6 +1596,7 @@ public class PlayerMovement : MonoBehaviour
         // Stop dash state
         dashVelocity = Vector3.zero;
         isDashing = false;
+        isDashingFlag = false;
         dashForceStop = false;
         suspendGravityDuringDash = false;
         airDashInProgress = false;
