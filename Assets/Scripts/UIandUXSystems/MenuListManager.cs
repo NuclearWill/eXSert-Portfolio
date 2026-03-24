@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
@@ -13,6 +14,7 @@ public class MenuListManager : MonoBehaviour
 
     // Tracks the last selected element before opening each menu (acts as a stack)
     private readonly List<Selectable> selectionHistory = new List<Selectable>();
+    private readonly WaitForSecondsRealtime controlsPollInterval = new WaitForSecondsRealtime(0.1f);
 
     
 
@@ -22,6 +24,38 @@ public class MenuListManager : MonoBehaviour
         if (firstMenuToOpen != null)
         {
             AddToMenuList(firstMenuToOpen);
+        }
+
+        StartCoroutine(ListenForChangesInControls());
+    }
+
+    private IEnumerator ListenForChangesInControls()
+    {
+        string currentControls = null;
+
+        while (true)
+        {
+            var playerInput = InputReader.PlayerInput;
+            if (playerInput == null)
+            {
+                yield return null;
+                continue;
+            }
+
+            string latestControls = playerInput.currentControlScheme;
+            if (currentControls == null)
+            {
+                currentControls = latestControls;
+            }
+            else if (latestControls != currentControls)
+            {
+                currentControls = latestControls;
+
+                if (menusToManage != null && menusToManage.Count > 0)
+                    EnsureSelectionForMenu(menusToManage[0]);
+            }
+
+            yield return controlsPollInterval;
         }
     }
 
@@ -63,7 +97,7 @@ public class MenuListManager : MonoBehaviour
                 bool keepCurrentTop = currentTop == firstMenuToOpen || currentTop == canvas;
                 if (sameParent && !keepCurrentTop)
                 {
-                    GoBackToPreviousMenu();
+                    RemoveCurrentTopForSiblingSwitch();
                 }
             }
         }
@@ -92,7 +126,7 @@ public class MenuListManager : MonoBehaviour
             
             if (firstSelectable != null)
             {
-                firstSelectable.Select();
+                SetSelected(firstSelectable);
             }
         }
 
@@ -134,6 +168,39 @@ public class MenuListManager : MonoBehaviour
                 SelectFirstSelectOnBack(newTop);
             }
         }
+    }
+
+    private void RemoveCurrentTopForSiblingSwitch()
+    {
+        if (menusToManage.Count == 0)
+            return;
+
+        GameObject currentTop = menusToManage[0];
+        FadeMenus fadeMenus = this.GetComponent<FadeMenus>();
+
+        if (currentTop != null)
+            fadeMenus.FadeMenuSafe(currentTop, fadeMenus.fadeDuration, false);
+
+        menusToManage.RemoveAt(0);
+    }
+
+    private void EnsureSelectionForMenu(GameObject menu)
+    {
+        Selectable currentSelection = EventSystem.current != null && EventSystem.current.currentSelectedGameObject != null
+            ? EventSystem.current.currentSelectedGameObject.GetComponent<Selectable>()
+            : null;
+
+        if (currentSelection != null
+            && currentSelection.IsInteractable()
+            && currentSelection.gameObject.activeInHierarchy
+            && currentSelection.transform.IsChildOf(menu.transform))
+        {
+            return;
+        }
+
+        Selectable fallback = GetFirstValidSelectable(menu);
+        if (fallback != null)
+            SetSelected(fallback);
     }
 
     private Selectable GetValidSelectionFromHistory(GameObject targetMenu)
