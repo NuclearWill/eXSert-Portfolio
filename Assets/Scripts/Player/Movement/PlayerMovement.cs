@@ -39,13 +39,20 @@ public class PlayerMovement : MonoBehaviour
     {
         get
         {
-            return s_instance != null && s_instance.characterController != null && s_instance.characterController.isGrounded;
+            return s_instance != null && s_instance.IsGroundedNow();
         }
     }
 
     public static bool isDashingFlag {get; private set; }
+    public static bool IsTestingOrDebugMode => s_instance != null && s_instance.testingOrDebugMode;
 
     #region Inspector Setup
+    [Header("Testing / Debug")]
+    [SerializeField, Tooltip("Enable when using isolated test scenes (no checkpoints/lifebox setup). Prevents systems from enforcing normal gameplay fail conditions that block movement testing.")]
+    private bool testingOrDebugMode = false;
+    [SerializeField, Tooltip("Verbose movement diagnostics for jump/grounded/animation state transitions. Use for reproducing movement bugs in test scenes.")]
+    private bool verboseMovementDebugLogs = false;
+
     [Header("Player Animator")]
     [SerializeField] private PlayerAnimationController animationController;
     [SerializeField] private PlayerAttackManager attackManager;
@@ -75,14 +82,31 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField, Range(0.2f, 1f)]
     private float joystickWalkThreshold = 0.8f;
 
+    [SerializeField, Tooltip("When enabled, movement defaults straight to Jog instead of starting in Walk.")]
+    private bool startInJog = true;
+
+    [SerializeField, Tooltip("If Start In Jog is enabled, allows light analog tilt to still use Walk via Joystick Walk Threshold.")]
+    private bool allowAnalogWalkWhileStartInJog = false;
+
     [SerializeField, Range(0.2f, 10f)]
     private float sprintDelaySeconds = 2f;
+
+    [SerializeField, Range(0.1f, 40f), Tooltip("How quickly movement speed ramps up when transitioning into Sprint (units/sec). Lower = smoother/longer blend.")]
+    private float sprintSpeedRampRate = 10f;
 
     [SerializeField, Range(0f, 20f)]
     private float friction = 6f;
 
     [SerializeField, Range(0f, 0.3f)]
     private float inputReleaseGrace = 0.08f;
+
+    [Header("Attack Movement")]
+    [SerializeField, Tooltip("When enabled, movement input can continue while attacks are active.")]
+    private bool allowMovementWhileAttacking = true;
+    [SerializeField, Range(0.1f, 1.5f), Tooltip("Movement speed multiplier applied while attacking when attack movement is enabled.")]
+    private float attackMovementSpeedMultiplier = 1f;
+    [SerializeField, Range(0f, 180f), Tooltip("Maximum left/right turn angle allowed while attacking, measured from facing direction at attack start. 180 = no limit.")]
+    private float maxAttackTurnAngleWhileAttacking = 50f;
 
     [Header("Landing Settings")]
     [SerializeField, Range(0f, 1f)]
@@ -134,6 +158,8 @@ public class PlayerMovement : MonoBehaviour
     [Range(0f, 0.3f)] private float plungeHoverTime = 0.06f;
     [SerializeField, Tooltip("Downward speed applied during plunge phase")] 
     [Range(10f, 60f)] private float plungeDownSpeed = 32f;
+    [SerializeField, Tooltip("How long jump input is blocked after landing from a plunge attack.")]
+    [Range(0f, 1.5f)] private float plungeJumpLockDuration = 0.2f;
 
     [Header("Aerial Combat Height Gate")]
     [SerializeField, Tooltip("Minimum distance above ground required to start aerial attacks/plunge. If 0, uses (basic jump height + extra).")]
@@ -160,6 +186,12 @@ public class PlayerMovement : MonoBehaviour
     [SerializeField, Range(0.05f, 1f)]
     private float dashDuration = 0.25f;
 
+    [SerializeField, Range(0f, 0.3f), Tooltip("Crossfade duration used when entering grounded dash animation.")]
+    private float dashAnimationTransition = 0.08f;
+
+    [SerializeField, Range(0f, 0.3f), Tooltip("Crossfade duration used when entering air dash animation.")]
+    private float airDashAnimationTransition = 0.08f;
+
     [SerializeField, Min(1)]
     private int maxDashCharges = 2;
 
@@ -168,6 +200,14 @@ public class PlayerMovement : MonoBehaviour
 
     [SerializeField, Range(0f, 2f)]
     private float dashCoolDown = 0.5f;
+
+    [Header("Dash Momentum")]
+    [SerializeField, Range(0f, 1f), Tooltip("Fraction of dash speed preserved briefly after dash end.")]
+    private float dashMomentumCarryPercent = 0.3f;
+    [SerializeField, Range(0f, 10f), Tooltip("Maximum bonus speed allowed above sprint from dash carry momentum.")]
+    private float dashMomentumMaxBonusSpeed = 1.5f;
+    [SerializeField, Range(0.1f, 40f), Tooltip("How quickly carried dash momentum decays after dash end (units/sec).")]
+    private float dashMomentumDecayRate = 14f;
 
     [Header("External Reactions")]
     [SerializeField, Range(0.05f, 1.5f)]
@@ -234,7 +274,7 @@ public class PlayerMovement : MonoBehaviour
     private bool doubleJumpAvailable;
     private enum PendingJumpType { None, Ground, Double }
     private PendingJumpType pendingJump = PendingJumpType.None;
-    private float pendingJumpTimer;
+    private Coroutine pendingJumpTimeoutRoutine;
     private bool airborneAnimationLocked;
     private bool fallingAnimationPlaying;
     private float landingAnimationLockTimer;
@@ -272,6 +312,19 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 knockbackVelocity;
     private float knockbackStartMagnitude;
     private float knockbackStartTime;
+    private bool debugLastGrounded;
+    private bool debugLastInputBusy;
+    private bool debugLastAirborneAnimationLocked;
+    private bool debugLastFallingAnimationPlaying;
+    private bool debugLastLocomotionSuppressed;
+    private bool debugLastDashing;
+    private PendingJumpType debugLastPendingJump = PendingJumpType.None;
+    private bool warnedMissingSoundSource;
+    private Vector3 dashCarryVelocity = Vector3.zero;
+    private bool attackFacingLockInitialized;
+    private Vector3 attackFacingLockForward = Vector3.forward;
+    private bool plungeJumpLocked;
+    private Coroutine plungeJumpLockRoutine;
 
     private Transform ResolveCameraTransform()
     {
@@ -292,6 +345,37 @@ public class PlayerMovement : MonoBehaviour
             return activeCamera.transform;
 
         return Camera.main != null ? Camera.main.transform : null;
+    }
+
+    private bool IsGroundedNow()
+    {
+        if (characterController == null)
+            return false;
+
+        if (characterController.isGrounded)
+            return true;
+
+        float probeDistance = Mathf.Max(0.01f, maxDistance);
+        if (probeDistance <= 0f)
+            return false;
+
+        Bounds bounds = characterController.bounds;
+        Vector3 halfExtents = new Vector3(
+            Mathf.Max(0.01f, boxSize.x * 0.5f),
+            Mathf.Max(0.01f, boxSize.y * 0.5f),
+            Mathf.Max(0.01f, boxSize.z * 0.5f));
+
+        Vector3 origin = new Vector3(bounds.center.x, bounds.min.y + halfExtents.y + 0.02f, bounds.center.z);
+        LayerMask probeMask = layerMask.value == 0 ? Physics.DefaultRaycastLayers : layerMask;
+
+        return Physics.BoxCast(
+            origin,
+            halfExtents,
+            Vector3.down,
+            Quaternion.identity,
+            probeDistance,
+            probeMask,
+            QueryTriggerInteraction.Ignore);
     }
 
     private Vector3 forward
@@ -382,6 +466,16 @@ public class PlayerMovement : MonoBehaviour
         airDashAvailable = true;
         suspendGravityDuringDash = false;
         ResetDashCharges();
+        ResetMoveState();
+        wasGrounded = IsGroundedNow();
+
+        debugLastGrounded = wasGrounded;
+        debugLastInputBusy = InputReader.inputBusy;
+        debugLastAirborneAnimationLocked = airborneAnimationLocked;
+        debugLastFallingAnimationPlaying = fallingAnimationPlaying;
+        debugLastLocomotionSuppressed = locomotionAnimationSuppressed;
+        debugLastDashing = isDashing;
+        debugLastPendingJump = pendingJump;
     }
     private void OnEnable()
     {
@@ -393,6 +487,15 @@ public class PlayerMovement : MonoBehaviour
     private void OnDisable()
     {
         PlayerAttackManager.OnAttack -= AerialAttackHop;
+
+        StopPendingJumpTimeout();
+
+        if (plungeJumpLockRoutine != null)
+        {
+            try { StopCoroutine(plungeJumpLockRoutine); } catch { }
+            plungeJumpLockRoutine = null;
+        }
+        plungeJumpLocked = false;
 
         // Stop any running coroutines we own to avoid keeping this MonoBehaviour alive
         if (dashRoutine != null)
@@ -437,6 +540,15 @@ public class PlayerMovement : MonoBehaviour
         // Mirror OnDisable cleanup in case object is destroyed without disabling first
         PlayerAttackManager.OnAttack -= AerialAttackHop;
 
+        StopPendingJumpTimeout();
+
+        if (plungeJumpLockRoutine != null)
+        {
+            try { StopCoroutine(plungeJumpLockRoutine); } catch { }
+            plungeJumpLockRoutine = null;
+        }
+        plungeJumpLocked = false;
+
         if (dashRoutine != null)
         {
             try { StopCoroutine(dashRoutine); } catch { }
@@ -472,6 +584,8 @@ public class PlayerMovement : MonoBehaviour
 
     private void Update()
     {
+        DebugStateTransitions();
+
         EnsureDashStateConsistency();
 
         if (InputReader.JumpTriggered)
@@ -499,12 +613,6 @@ public class PlayerMovement : MonoBehaviour
             }
         }
 
-        if (pendingJump != PendingJumpType.None && pendingJumpTimer > 0f)
-        {
-            pendingJumpTimer -= Time.deltaTime;
-            if (pendingJumpTimer <= 0f)
-                HandleAnimationJumpEvent();
-        }
     }
 
     // Update is called once per frame
@@ -534,7 +642,25 @@ public class PlayerMovement : MonoBehaviour
 
     private void Move()
     {
-        if (InputReader.inputBusy || isDashing)
+        bool attackMovementActive = IsAttackMovementActive();
+
+        if (attackMovementActive)
+        {
+            attackFacingLockForward = transform.forward;
+            attackFacingLockForward.y = 0f;
+            if (attackFacingLockForward.sqrMagnitude < 0.0001f)
+                attackFacingLockForward = Vector3.forward;
+            else
+                attackFacingLockForward.Normalize();
+
+            attackFacingLockInitialized = true;
+        }
+        else
+        {
+            attackFacingLockInitialized = false;
+        }
+
+        if ((InputReader.inputBusy && !attackMovementActive) || isDashing)
         {
             currentMovement.x = 0f;
             currentMovement.z = 0f;
@@ -579,17 +705,34 @@ public class PlayerMovement : MonoBehaviour
 
             Vector3 moveDirection = (forward * inputMove.y + right * inputMove.x).normalized;
             float targetSpeed = movementSpeedOverrideActive ? movementSpeedOverride : CurrentSpeed;
-            Vector3 desiredVelocity = moveDirection * targetSpeed;
+
+            if (attackMovementActive)
+                targetSpeed *= attackMovementSpeedMultiplier;
+
+            float appliedSpeed = targetSpeed;
+
+            // Smooth only the Jog -> Sprint speed jump so sprint onset feels less abrupt.
+            if (!movementSpeedOverrideActive && moveState == GroundMoveState.Sprint)
+            {
+                float currentHorizontalSpeed = new Vector2(currentMovement.x, currentMovement.z).magnitude;
+                appliedSpeed = Mathf.MoveTowards(currentHorizontalSpeed, targetSpeed, sprintSpeedRampRate * Time.deltaTime);
+            }
+
+            Vector3 desiredVelocity = moveDirection * appliedSpeed;
             currentMovement.x = desiredVelocity.x;
             currentMovement.z = desiredVelocity.z;
 
             if (shouldFaceMoveDirection && moveDirection.sqrMagnitude > 0.001f)
             {
-                Quaternion toRotation = Quaternion.LookRotation(moveDirection, Vector3.up);
+                Vector3 facingDirection = attackMovementActive
+                    ? GetAttackConstrainedFacingDirection(moveDirection)
+                    : moveDirection;
+
+                Quaternion toRotation = Quaternion.LookRotation(facingDirection, Vector3.up);
                 transform.rotation = Quaternion.Slerp(transform.rotation, toRotation, Time.deltaTime * 10f);
             }
 
-            if (!locomotionAnimationSuppressed && pendingJump == PendingJumpType.None && !previouslyMoving && !stateChanged)
+            if (!attackMovementActive && !locomotionAnimationSuppressed && pendingJump == PendingJumpType.None && !previouslyMoving && !stateChanged)
             {
                 PlayMovementAnimation();
             }
@@ -606,7 +749,7 @@ public class PlayerMovement : MonoBehaviour
             currentMovement.x = Mathf.MoveTowards(currentMovement.x, 0f, friction * Time.deltaTime);
             currentMovement.z = Mathf.MoveTowards(currentMovement.z, 0f, friction * Time.deltaTime);
 
-            if (!locomotionAnimationSuppressed && pendingJump == PendingJumpType.None && characterController.isGrounded && !airborneAnimationLocked && landingAnimationLockTimer <= 0f &&
+            if (!attackMovementActive && !locomotionAnimationSuppressed && pendingJump == PendingJumpType.None && IsGroundedNow() && !airborneAnimationLocked && landingAnimationLockTimer <= 0f &&
                 (previouslyMoving || (Mathf.Abs(currentMovement.x) < 0.01f && Mathf.Abs(currentMovement.z) < 0.01f)))
             {
                 EnsureCombatIdleControllerReference();
@@ -641,6 +784,11 @@ public class PlayerMovement : MonoBehaviour
 
     private void OnJump()
     {
+        DebugMovementLog($"OnJump called | grounded={IsGroundedNow()} ccGrounded={(characterController != null && characterController.isGrounded)} inputBusy={InputReader.inputBusy} pendingJump={pendingJump} canDoubleJump={canDoubleJump} doubleJumpAvailable={doubleJumpAvailable} currentY={currentMovement.y:F2}");
+
+        if (plungeJumpLocked)
+            return;
+
         if (CombatManager.isGuarding)
             return;
 
@@ -654,13 +802,13 @@ public class PlayerMovement : MonoBehaviour
             return;
 
         // checks to see if the player can jump or double jump
-        if (characterController.isGrounded)
+        if (IsGroundedNow())
         {
             airborneAnimationLocked = true;
             fallingAnimationPlaying = false;
             highFallActive = false;
             pendingJump = PendingJumpType.Ground;
-            pendingJumpTimer = jumpEventTimeout;
+            StartPendingJumpTimeout();
             animationController?.PlayJump();
             if (animationController == null || jumpEventTimeout <= 0f)
                 HandleAnimationJumpEvent();
@@ -671,7 +819,7 @@ public class PlayerMovement : MonoBehaviour
             fallingAnimationPlaying = false;
             highFallActive = true;
             pendingJump = PendingJumpType.Double;
-            pendingJumpTimer = jumpEventTimeout;
+            StartPendingJumpTimeout();
             animationController?.PlayAirJumpStart();
             if (animationController == null || jumpEventTimeout <= 0f)
                 HandleAnimationJumpEvent();
@@ -683,11 +831,13 @@ public class PlayerMovement : MonoBehaviour
         if (pendingJump == PendingJumpType.None)
             return;
 
-        pendingJumpTimer = 0f;
+        DebugMovementLog($"HandleAnimationJumpEvent START | pendingJump={pendingJump} grounded={IsGroundedNow()} ccGrounded={(characterController != null && characterController.isGrounded)} currentY={currentMovement.y:F2}");
+
+        StopPendingJumpTimeout();
 
         if (pendingJump == PendingJumpType.Ground)
         {
-            if (!characterController.isGrounded)
+            if (!IsGroundedNow())
             {
                 pendingJump = PendingJumpType.None;
                 return;
@@ -695,11 +845,10 @@ public class PlayerMovement : MonoBehaviour
 
 
             currentMovement.y = jumpForce;
-            PlaySFX(jumpSFX);
-
-            
             doubleJumpAvailable = canDoubleJump;
             pendingJump = PendingJumpType.None;
+            PlaySFX(jumpSFX);
+            DebugMovementLog($"Ground jump applied | currentY={currentMovement.y:F2} doubleJumpAvailable={doubleJumpAvailable}");
             return;
         }
 
@@ -714,6 +863,7 @@ public class PlayerMovement : MonoBehaviour
         doubleJumpAvailable = false;
         pendingJump = PendingJumpType.None;
         DoubleJumpPerformed?.Invoke();
+        DebugMovementLog($"Double jump applied | currentY={currentMovement.y:F2} doubleJumpAvailable={doubleJumpAvailable}");
     }
 
     private void OnDash()
@@ -727,7 +877,7 @@ public class PlayerMovement : MonoBehaviour
         if (CombatManager.isGuarding)
             return;
 
-        bool grounded = characterController.isGrounded;
+        bool grounded = IsGroundedNow();
         bool dashAllowed = grounded || airDashAvailable;
         if (!dashAllowed)
             return;
@@ -778,10 +928,10 @@ public class PlayerMovement : MonoBehaviour
                 useDashCharges: true,
                 onStart: () =>
                 {
-                    if (characterController.isGrounded)
-                        animationController?.PlayDash();
+                    if (IsGroundedNow())
+                        animationController?.PlayDash(dashAnimationTransition);
                     else
-                        animationController?.PlayAirDash();
+                        animationController?.PlayAirDash(airDashAnimationTransition);
                 },
                 onComplete: () =>
                 {
@@ -808,6 +958,7 @@ public class PlayerMovement : MonoBehaviour
         direction = direction.sqrMagnitude > 0.0001f ? direction.normalized : transform.forward;
 
         isDashing = true;
+        dashCarryVelocity = Vector3.zero;
         currentDashUsesCharges = useDashCharges;
         dashStateExpectedEndTime = Time.unscaledTime + duration + 0.2f;
         airDashInProgress = isAirDash;
@@ -839,6 +990,7 @@ public class PlayerMovement : MonoBehaviour
             yield return null;
         }
 
+        Vector3 endedDashVelocity = dashVelocity;
         dashVelocity = Vector3.zero;
         isDashing = false;
         airDashInProgress = false;
@@ -860,7 +1012,27 @@ public class PlayerMovement : MonoBehaviour
         else
             isDashingFlag = false;
 
+        ApplyDashMomentumCarry(endedDashVelocity);
+
         currentDashUsesCharges = false;
+    }
+
+    private void ApplyDashMomentumCarry(Vector3 endedDashVelocity)
+    {
+        dashCarryVelocity = Vector3.zero;
+
+        if (dashMomentumCarryPercent <= 0f)
+            return;
+
+        Vector3 planar = new Vector3(endedDashVelocity.x, 0f, endedDashVelocity.z);
+        if (planar.sqrMagnitude <= 0.0001f)
+            return;
+
+        float carrySpeed = planar.magnitude * dashMomentumCarryPercent;
+        float maxCarrySpeed = Mathf.Max(0f, sprintSpeed + dashMomentumMaxBonusSpeed);
+        carrySpeed = Mathf.Min(carrySpeed, maxCarrySpeed);
+
+        dashCarryVelocity = planar.normalized * carrySpeed;
     }
 
     private void HandleDashRecovery()
@@ -950,7 +1122,7 @@ public class PlayerMovement : MonoBehaviour
 
     public bool TryTriggerLauncherJump()
     {
-        if (!isDashing || characterController == null || !characterController.isGrounded)
+        if (!isDashing || characterController == null || !IsGroundedNow())
             return false;
 
         AbortDashState(releaseInputLock: true, stopCoroutine: true, applyDashRecovery: true);
@@ -1105,7 +1277,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void AerialAttackHop(PlayerAttack attack)
     {
-        if (attack == null || characterController.isGrounded)
+        if (attack == null || IsGroundedNow())
             return;
 
         if (attack.attackType == AttackType.LightAerial)
@@ -1175,6 +1347,15 @@ public class PlayerMovement : MonoBehaviour
         currentMovement.y = Mathf.Clamp(currentMovement.y, -terminalVelocity, terminalVelocity);
 
         Vector3 horizontalMovement = isDashing ? dashVelocity : new Vector3(currentMovement.x, 0, currentMovement.z);
+
+        if (!isDashing && dashCarryVelocity.sqrMagnitude > 0.0001f)
+        {
+            horizontalMovement += dashCarryVelocity;
+            dashCarryVelocity = Vector3.MoveTowards(
+                dashCarryVelocity,
+                Vector3.zero,
+                Mathf.Max(0f, dashMomentumDecayRate) * Time.deltaTime);
+        }
         
         // Add external velocity injection (vacuum suction, knockback, etc.)
         if (externalVelocityActive)
@@ -1203,6 +1384,7 @@ public class PlayerMovement : MonoBehaviour
         // reset vertical movement when grounded
         if (characterController.isGrounded && currentMovement.y < 0)
         {
+            DebugMovementLog($"ApplyMovement grounded reset | groundedNow={IsGroundedNow()} ccGrounded={characterController.isGrounded} yBeforeReset={currentMovement.y:F2} fallingAnimationPlaying={fallingAnimationPlaying} airborneAnimationLocked={airborneAnimationLocked}");
             currentMovement.y = -1f; // small negative value to keep the player grounded
             if (isPlunging)
                 plungeLandingPending = true;
@@ -1214,7 +1396,7 @@ public class PlayerMovement : MonoBehaviour
 
     private void HandleAirborneAnimations()
     {
-        bool grounded = characterController.isGrounded;
+        bool grounded = IsGroundedNow();
 
         if (pendingJump != PendingJumpType.None)
         {
@@ -1224,8 +1406,12 @@ public class PlayerMovement : MonoBehaviour
 
         if (!wasGrounded && grounded)
         {
+            DebugMovementLog($"Landing transition detected | wasGrounded={wasGrounded} groundedNow={grounded} ccGrounded={(characterController != null && characterController.isGrounded)} currentY={currentMovement.y:F2} pendingJump={pendingJump}");
             bool landedFromPlunge = plungeLandingPending || isPlunging;
             plungeLandingPending = false;
+
+            if (landedFromPlunge)
+                StartPlungeJumpLock();
 
             if (landedFromPlunge)
             {
@@ -1279,6 +1465,7 @@ public class PlayerMovement : MonoBehaviour
             }
             else if (currentMovement.y <= 0f && !fallingAnimationPlaying && !airDashInProgress)
             {
+                DebugMovementLog($"Falling animation trigger | currentY={currentMovement.y:F2} airborneLocked={airborneAnimationLocked} aerialLockTimer={aerialAttackLockTimer:F2} isPlunging={isPlunging} inputBusy={InputReader.inputBusy}");
                 if (ShouldUseHighFallAnimation())
                     animationController?.PlayFallingHigh();
                 else
@@ -1289,6 +1476,56 @@ public class PlayerMovement : MonoBehaviour
         }
 
         wasGrounded = grounded;
+    }
+
+    private void StartPlungeJumpLock()
+    {
+        if (plungeJumpLockDuration <= 0f)
+        {
+            plungeJumpLocked = false;
+            return;
+        }
+
+        if (plungeJumpLockRoutine != null)
+            StopCoroutine(plungeJumpLockRoutine);
+
+        plungeJumpLockRoutine = StartCoroutine(PlungeJumpLockRoutine());
+    }
+
+    private void StartPendingJumpTimeout()
+    {
+        StopPendingJumpTimeout();
+
+        if (jumpEventTimeout <= 0f)
+            return;
+
+        pendingJumpTimeoutRoutine = StartCoroutine(PendingJumpTimeoutRoutine());
+    }
+
+    private void StopPendingJumpTimeout()
+    {
+        if (pendingJumpTimeoutRoutine == null)
+            return;
+
+        StopCoroutine(pendingJumpTimeoutRoutine);
+        pendingJumpTimeoutRoutine = null;
+    }
+
+    private IEnumerator PendingJumpTimeoutRoutine()
+    {
+        yield return new WaitForSeconds(jumpEventTimeout);
+        pendingJumpTimeoutRoutine = null;
+
+        if (pendingJump != PendingJumpType.None)
+            HandleAnimationJumpEvent();
+    }
+
+    private IEnumerator PlungeJumpLockRoutine()
+    {
+        plungeJumpLocked = true;
+        yield return new WaitForSeconds(plungeJumpLockDuration);
+        plungeJumpLocked = false;
+        plungeJumpLockRoutine = null;
     }
 
     private void ResetMoveState()
@@ -1311,8 +1548,16 @@ public class PlayerMovement : MonoBehaviour
         }
         else
         {
-            sprintChargeActive = false;
-            moveState = GroundMoveState.Walk;
+            if (startInJog)
+            {
+                sprintChargeActive = true;
+                moveState = GroundMoveState.Jog;
+            }
+            else
+            {
+                sprintChargeActive = false;
+                moveState = GroundMoveState.Walk;
+            }
         }
     }
 
@@ -1340,9 +1585,35 @@ public class PlayerMovement : MonoBehaviour
                 break;
         }
 
-        if (!locomotionAnimationSuppressed)
+        if (!locomotionAnimationSuppressed && !IsAttackMovementActive())
             PlayMovementAnimation();
         return true;
+    }
+
+    private bool IsAttackMovementActive()
+    {
+        if (!allowMovementWhileAttacking || !InputReader.inputBusy)
+            return false;
+
+        return attackManager != null && attackManager.IsAttackInProgress;
+    }
+
+    private Vector3 GetAttackConstrainedFacingDirection(Vector3 desiredDirection)
+    {
+        desiredDirection.y = 0f;
+        if (desiredDirection.sqrMagnitude < 0.0001f)
+            return transform.forward;
+
+        desiredDirection.Normalize();
+
+        if (!attackFacingLockInitialized || maxAttackTurnAngleWhileAttacking >= 179.9f)
+            return desiredDirection;
+
+        float signedAngle = Vector3.SignedAngle(attackFacingLockForward, desiredDirection, Vector3.up);
+        float clampedAngle = Mathf.Clamp(signedAngle, -maxAttackTurnAngleWhileAttacking, maxAttackTurnAngleWhileAttacking);
+
+        Vector3 constrained = Quaternion.AngleAxis(clampedAngle, Vector3.up) * attackFacingLockForward;
+        return constrained.normalized;
     }
 
     private bool IsAnalogControlSchemeActive()
@@ -1361,7 +1632,7 @@ public class PlayerMovement : MonoBehaviour
     public bool CanStartAerialCombat()
     {
         // Must be in the air; grounded attacks are handled separately.
-        if (characterController != null && characterController.isGrounded)
+        if (characterController != null && IsGroundedNow())
             return false;
 
         float gravityMagnitude = Mathf.Max(0.01f, Mathf.Abs(gravity));
@@ -1404,7 +1675,12 @@ public class PlayerMovement : MonoBehaviour
 
         if (useAnalogThresholds)
         {
-            if (inputMagnitude < joystickWalkThreshold)
+            if (startInJog && !allowAnalogWalkWhileStartInJog)
+            {
+                if (moveState == GroundMoveState.Walk)
+                    stateChanged |= TrySetMoveState(GroundMoveState.Jog, force: true);
+            }
+            else if (inputMagnitude < joystickWalkThreshold)
             {
                 stateChanged |= TrySetMoveState(GroundMoveState.Walk);
             }
@@ -1524,6 +1800,9 @@ public class PlayerMovement : MonoBehaviour
 
     public void SuppressLocomotionAnimations(bool suppress)
     {
+        if (locomotionAnimationSuppressed != suppress)
+            DebugMovementLog($"SuppressLocomotionAnimations changed: {locomotionAnimationSuppressed} -> {suppress}");
+
         locomotionAnimationSuppressed = suppress;
         if (suppress)
             wasMoving = false;
@@ -1572,7 +1851,7 @@ public class PlayerMovement : MonoBehaviour
 
     public bool IsDashing => isDashing;
 
-    public bool CanTriggerLauncherFromDash => isDashing && characterController != null && characterController.isGrounded;
+    public bool CanTriggerLauncherFromDash => isDashing && characterController != null && IsGroundedNow();
 
     public bool TrySnapToSoftLock(Vector3 worldPosition, Quaternion desiredRotation)
     {
@@ -1616,6 +1895,7 @@ public class PlayerMovement : MonoBehaviour
         // Clear external velocity injection
         externalVelocity = Vector3.zero;
         externalVelocityActive = false;
+        dashCarryVelocity = Vector3.zero;
 
         // Stop attack forward-move
         attackMoveVelocity = Vector3.zero;
@@ -1632,7 +1912,7 @@ public class PlayerMovement : MonoBehaviour
 
         // Clear pending jump
         pendingJump = PendingJumpType.None;
-        pendingJumpTimer = 0f;
+        StopPendingJumpTimeout();
 
         // Release external stun input lock if we own it
         if (externalStunOwnsInput)
@@ -1671,19 +1951,40 @@ public class PlayerMovement : MonoBehaviour
         if (clip == null)
             return;
 
-        SoundManager.Instance.voiceSource.PlayOneShot(clip);
+        SoundManager soundManager = SoundManager.Instance;
+        AudioSource source = soundManager != null ? soundManager.voiceSource : null;
+        if (source == null)
+        {
+            if (!warnedMissingSoundSource)
+            {
+                Debug.LogWarning("[PlayerMovement] SoundManager/voiceSource missing. Movement SFX playback skipped.");
+                warnedMissingSoundSource = true;
+            }
+            return;
+        }
+
+        source.PlayOneShot(clip);
     }
 
     private void PlayMovementAnimation()
     {
         if (locomotionAnimationSuppressed)
+        {
+            DebugMovementLog("PlayMovementAnimation blocked: locomotionAnimationSuppressed=true");
             return;
+        }
 
         if (animationController == null)
+        {
+            DebugMovementLog("PlayMovementAnimation blocked: animationController is null");
             return;
+        }
 
-        if (characterController != null && (!characterController.isGrounded || airborneAnimationLocked))
+        if (characterController != null && (!IsGroundedNow() || airborneAnimationLocked))
+        {
+            DebugMovementLog($"PlayMovementAnimation blocked: grounded={IsGroundedNow()} airborneAnimationLocked={airborneAnimationLocked} ccGrounded={characterController.isGrounded}");
             return;
+        }
 
         if (landingAnimationLockTimer > 0f && InputReader.MoveInput.sqrMagnitude < moveInputDeadZone * moveInputDeadZone)
             return;
@@ -1700,6 +2001,67 @@ public class PlayerMovement : MonoBehaviour
                 animationController.PlaySprint();
                 break;
         }
+
+        DebugMovementLog($"PlayMovementAnimation executed: {moveState}");
+    }
+
+    private void DebugStateTransitions()
+    {
+        if (!verboseMovementDebugLogs)
+            return;
+
+        bool grounded = IsGroundedNow();
+        bool inputBusy = InputReader.inputBusy;
+
+        if (grounded != debugLastGrounded)
+        {
+            Debug.Log($"[PlayerMovement][Debug] grounded changed: {debugLastGrounded} -> {grounded} | ccGrounded={(characterController != null && characterController.isGrounded)} | currentY={currentMovement.y:F2}");
+            debugLastGrounded = grounded;
+        }
+
+        if (inputBusy != debugLastInputBusy)
+        {
+            Debug.Log($"[PlayerMovement][Debug] inputBusy changed: {debugLastInputBusy} -> {inputBusy}");
+            debugLastInputBusy = inputBusy;
+        }
+
+        if (airborneAnimationLocked != debugLastAirborneAnimationLocked)
+        {
+            Debug.Log($"[PlayerMovement][Debug] airborneAnimationLocked changed: {debugLastAirborneAnimationLocked} -> {airborneAnimationLocked}");
+            debugLastAirborneAnimationLocked = airborneAnimationLocked;
+        }
+
+        if (fallingAnimationPlaying != debugLastFallingAnimationPlaying)
+        {
+            Debug.Log($"[PlayerMovement][Debug] fallingAnimationPlaying changed: {debugLastFallingAnimationPlaying} -> {fallingAnimationPlaying}");
+            debugLastFallingAnimationPlaying = fallingAnimationPlaying;
+        }
+
+        if (locomotionAnimationSuppressed != debugLastLocomotionSuppressed)
+        {
+            Debug.Log($"[PlayerMovement][Debug] locomotionAnimationSuppressed changed: {debugLastLocomotionSuppressed} -> {locomotionAnimationSuppressed}");
+            debugLastLocomotionSuppressed = locomotionAnimationSuppressed;
+        }
+
+        if (isDashing != debugLastDashing)
+        {
+            Debug.Log($"[PlayerMovement][Debug] isDashing changed: {debugLastDashing} -> {isDashing}");
+            debugLastDashing = isDashing;
+        }
+
+        if (pendingJump != debugLastPendingJump)
+        {
+            Debug.Log($"[PlayerMovement][Debug] pendingJump changed: {debugLastPendingJump} -> {pendingJump}");
+            debugLastPendingJump = pendingJump;
+        }
+    }
+
+    private void DebugMovementLog(string message)
+    {
+        if (!verboseMovementDebugLogs)
+            return;
+
+        Debug.Log($"[PlayerMovement][Debug] {message}");
     }
 
     #region External Velocity Injection (Vacuum, Knockback, etc.)

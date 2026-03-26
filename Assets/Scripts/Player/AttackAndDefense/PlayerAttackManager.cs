@@ -43,6 +43,14 @@ public class PlayerAttackManager : MonoBehaviour
     [SerializeField, Tooltip("Cross-fade duration when exiting a plunge into combat idle.")]
     [Range(0f, 1f)] private float plungeIdleBlendTime = 0.25f;
 
+    [Header("Attack Forward Move Blocking")]
+    [SerializeField, Tooltip("If enabled, attack forward movement is skipped when an alive enemy is too close in front of the player.")]
+    private bool blockAttackForwardMoveWhenEnemyNear = true;
+    [SerializeField, Range(0f, 5f), Tooltip("Distance threshold to block attack forward movement when an enemy is in front.")]
+    private float attackForwardMoveBlockDistance = 1.25f;
+    [SerializeField, Range(0f, 180f), Tooltip("Front cone angle used for attack forward-move blocking.")]
+    private float attackForwardMoveBlockAngle = 80f;
+
     [Header("Debug")]
     [SerializeField, Tooltip("When enabled, logs plunge hitbox damage (base x multiplier) when the hitbox spawns, even if no enemy is hit.")]
     private bool debugPlungeDamage = true;
@@ -62,13 +70,49 @@ public class PlayerAttackManager : MonoBehaviour
     private Coroutine heavyMoveRoutine;
     private bool lastAttackWasAoe;
     private float currentAttackDamageMultiplier = 1f;
+    private readonly Collider[] forwardMoveBlockHits = new Collider[24];
+
+    public bool IsAttackInProgress => currentAttack != null;
 
     [Header("Input Buffering")]
     [SerializeField, Range(0.05f, 0.6f)] private float inputBufferWindow = 0.25f;
 
+    [Header("Attack Speed")]
+    [SerializeField, Range(0.1f, 3f), Tooltip("Global speed multiplier applied to all player attacks.")]
+    private float globalAttackSpeedMultiplier = 1f;
+
+    [Header("Single Target Light (SX)")]
+    [SerializeField, Range(0.1f, 3f)] private float sx1SpeedMultiplier = 1f;
+    [SerializeField, Range(0.1f, 3f)] private float sx2SpeedMultiplier = 1f;
+    [SerializeField, Range(0.1f, 3f)] private float sx3SpeedMultiplier = 1f;
+    [SerializeField, Range(0.1f, 3f)] private float sx4SpeedMultiplier = 1f;
+    [SerializeField, Range(0.1f, 3f)] private float sx5SpeedMultiplier = 1f;
+
+    [Header("Heavy (AY)")]
+    [SerializeField, Range(0.1f, 3f)] private float ay1SpeedMultiplier = 1f;
+    [SerializeField, Range(0.1f, 3f)] private float ay2SpeedMultiplier = 1f;
+    [SerializeField, Range(0.1f, 3f)] private float ay3SpeedMultiplier = 1f;
+
+    [Header("Aerial Combo (AC)")]
+    [SerializeField, Range(0.1f, 3f)] private float acX1SpeedMultiplier = 1f;
+    [SerializeField, Range(0.1f, 3f)] private float acX2SpeedMultiplier = 1f;
+    [SerializeField, Range(0.1f, 3f)] private float plungeSpeedMultiplier = 1f;
+    [SerializeField, Range(0.1f, 3f)] private float airDashAttackSpeedMultiplier = 1f;
+
+    [Header("Special / Guard")]
+    [SerializeField, Range(0.1f, 3f)] private float launcherSpeedMultiplier = 1f;
+    [SerializeField, Range(0.1f, 3f)] private float guardAttackSpeedMultiplier = 1f;
+
+    [Header("Legacy / Optional (AX)")]
+    [SerializeField, Range(0.1f, 3f)] private float ax1SpeedMultiplier = 1f;
+    [SerializeField, Range(0.1f, 3f)] private float ax2SpeedMultiplier = 1f;
+    [SerializeField, Range(0.1f, 3f)] private float ax3SpeedMultiplier = 1f;
+    [SerializeField, Range(0.1f, 3f)] private float ax4SpeedMultiplier = 1f;
+
     private enum AttackButton { None, Light, Heavy }
     private AttackButton bufferedAttackButton = AttackButton.None;
     private float bufferedAttackExpiresAt = -1f;
+    private float currentAttackSpeedMultiplier = 1f;
 
     public static event Action<PlayerAttack> OnAttack;
 
@@ -143,6 +187,8 @@ public class PlayerAttackManager : MonoBehaviour
         StopSpecialAttackAutoCancelRoutine();
 
         ClearHitbox();
+        currentAttackSpeedMultiplier = 1f;
+        animationController?.ResetAnimatorSpeed();
         InputReader.inputBusy = false;
     }
 
@@ -213,7 +259,8 @@ public class PlayerAttackManager : MonoBehaviour
         );
 
         StartGuardAttackFlow(guardAttack);
-        ScheduleSpecialAttackAutoCancel(GetAnimationDurationOrFallback(guardAttack, guardAttackAutoCancelDuration));
+        float guardAutoCancel = GetAnimationDurationOrFallback(guardAttack, guardAttackAutoCancelDuration);
+        ScheduleSpecialAttackAutoCancel(ScaleDurationForAttack(guardAutoCancel, guardAttack));
     }
 
     private bool TryExecuteDashLauncherAttack()
@@ -240,7 +287,8 @@ public class PlayerAttackManager : MonoBehaviour
             controller => controller?.PlayLauncher()
         );
 
-        ScheduleSpecialAttackAutoCancel(GetAnimationDurationOrFallback(launcherAttack, launcherAutoCancelDuration));
+        float launcherAutoCancel = GetAnimationDurationOrFallback(launcherAttack, launcherAutoCancelDuration);
+        ScheduleSpecialAttackAutoCancel(ScaleDurationForAttack(launcherAutoCancel, launcherAttack));
 
         return true;
     }
@@ -417,6 +465,7 @@ public class PlayerAttackManager : MonoBehaviour
     {
         currentAttack = attackData;
         currentAttackDamageMultiplier = 1f;
+        currentAttackSpeedMultiplier = ResolveAttackSpeedMultiplier(attackData, attackId);
 
         if (currentAttack != null
             && currentAttack.attackType == AttackType.HeavyAerial
@@ -433,6 +482,7 @@ public class PlayerAttackManager : MonoBehaviour
             }
         }
         InputReader.inputBusy = true;
+        animationController?.SetAnimatorSpeed(currentAttackSpeedMultiplier);
 
         UpdateLastAttackType(attackData);
 
@@ -457,6 +507,9 @@ public class PlayerAttackManager : MonoBehaviour
         if (distance <= 0f)
             return;
 
+        if (ShouldBlockAttackForwardMove())
+            return;
+
         Vector3 forward = transform.forward;
         forward.y = 0f;
         if (forward.sqrMagnitude <= 0.0001f)
@@ -464,6 +517,7 @@ public class PlayerAttackManager : MonoBehaviour
         forward.Normalize();
 
         float duration = attackData.forwardMoveDuration;
+        duration = ScaleDurationForAttack(duration, attackData);
         if (playerMovement != null)
         {
             playerMovement.StartAttackForwardMove(forward, distance, duration);
@@ -480,6 +534,53 @@ public class PlayerAttackManager : MonoBehaviour
             StopCoroutine(heavyMoveRoutine);
 
         heavyMoveRoutine = StartCoroutine(HeavyAttackForwardMoveRoutine(forward, distance, duration));
+    }
+
+    private bool ShouldBlockAttackForwardMove()
+    {
+        if (!blockAttackForwardMoveWhenEnemyNear)
+            return false;
+
+        float threshold = Mathf.Max(0f, attackForwardMoveBlockDistance);
+        if (threshold <= 0f)
+            return false;
+
+        Vector3 origin = transform.position + Vector3.up * 0.5f;
+        int hitCount = Physics.OverlapSphereNonAlloc(
+            origin,
+            threshold,
+            forwardMoveBlockHits,
+            Physics.AllLayers,
+            QueryTriggerInteraction.Ignore);
+
+        Vector3 playerForward = transform.forward;
+        playerForward.y = 0f;
+        if (playerForward.sqrMagnitude > 0.0001f)
+            playerForward.Normalize();
+        else
+            playerForward = Vector3.forward;
+
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider col = forwardMoveBlockHits[i];
+            if (col == null)
+                continue;
+
+            BaseEnemyCore enemy = col.GetComponentInParent<BaseEnemyCore>();
+            if (enemy == null || !enemy.isAlive)
+                continue;
+
+            Vector3 toEnemy = enemy.transform.position - transform.position;
+            toEnemy.y = 0f;
+            if (toEnemy.sqrMagnitude <= 0.0001f)
+                return true;
+
+            float angle = Vector3.Angle(playerForward, toEnemy.normalized);
+            if (angle <= attackForwardMoveBlockAngle)
+                return true;
+        }
+
+        return false;
     }
 
     private IEnumerator HeavyAttackForwardMoveRoutine(Vector3 forward, float distance, float duration)
@@ -667,6 +768,8 @@ public class PlayerAttackManager : MonoBehaviour
             ? overrideDuration
             : attack.hitboxDuration;
 
+        lifetime = ScaleDurationForAttack(lifetime, attack);
+
         BeginHitboxLifetime(lifetime);
     }
 
@@ -784,7 +887,8 @@ public class PlayerAttackManager : MonoBehaviour
             if (plungeRecoveryRoutine != null)
                 StopCoroutine(plungeRecoveryRoutine);
 
-            plungeRecoveryRoutine = StartCoroutine(PlungeRecoveryRoutine());
+            float delay = ScaleDurationByCurrentAttackSpeed(plungeRecoveryDelay);
+            plungeRecoveryRoutine = StartCoroutine(PlungeRecoveryRoutine(delay));
         }
         else
         {
@@ -792,9 +896,9 @@ public class PlayerAttackManager : MonoBehaviour
         }
     }
 
-    private IEnumerator PlungeRecoveryRoutine()
+    private IEnumerator PlungeRecoveryRoutine(float delay)
     {
-        yield return new WaitForSeconds(plungeRecoveryDelay);
+        yield return new WaitForSeconds(Mathf.Max(0f, delay));
         plungeRecoveryRoutine = null;
         CompleteCancelWindow();
     }
@@ -821,6 +925,8 @@ public class PlayerAttackManager : MonoBehaviour
 
         currentAttack = null;
         currentAttackDamageMultiplier = 1f;
+        currentAttackSpeedMultiplier = 1f;
+        animationController?.ResetAnimatorSpeed();
 
         if (TryConsumeBufferedAttack())
             return;
@@ -925,6 +1031,8 @@ public class PlayerAttackManager : MonoBehaviour
         playerMovement?.CancelPlungeState();
         currentAttack = null;
         currentAttackDamageMultiplier = 1f;
+        currentAttackSpeedMultiplier = 1f;
+        animationController?.ResetAnimatorSpeed();
         InputReader.inputBusy = false;
         playerMovement?.SuppressLocomotionAnimations(false);
         playerMovement?.ForceLocomotionRefresh();
@@ -937,6 +1045,65 @@ public class PlayerAttackManager : MonoBehaviour
         {
             tierComboManager?.CancelComboResetCountdown();
         }
+    }
+
+    private float ResolveAttackSpeedMultiplier(PlayerAttack attackData, string attackId)
+    {
+        float resolved = Mathf.Max(0.1f, globalAttackSpeedMultiplier);
+        string id = !string.IsNullOrWhiteSpace(attackId)
+            ? attackId
+            : attackData != null ? attackData.attackId : null;
+
+        if (string.IsNullOrWhiteSpace(id))
+            return resolved;
+
+        string normalized = id.Trim().ToUpperInvariant();
+        float perAttack = normalized switch
+        {
+            "SX1" => sx1SpeedMultiplier,
+            "SX2" => sx2SpeedMultiplier,
+            "SX3" => sx3SpeedMultiplier,
+            "SX4" => sx4SpeedMultiplier,
+            "SX5" => sx5SpeedMultiplier,
+
+            "AY1" => ay1SpeedMultiplier,
+            "AY2" => ay2SpeedMultiplier,
+            "AY3" => ay3SpeedMultiplier,
+
+            "AC_X1" => acX1SpeedMultiplier,
+            "AC_X2" => acX2SpeedMultiplier,
+            "PLUNGE" => plungeSpeedMultiplier,
+            "AIRDASH" => airDashAttackSpeedMultiplier,
+
+            "LAUNCHER" => launcherSpeedMultiplier,
+            "G_ATTACK" => guardAttackSpeedMultiplier,
+
+            "AX1" => ax1SpeedMultiplier,
+            "AX2" => ax2SpeedMultiplier,
+            "AX3" => ax3SpeedMultiplier,
+            "AX4" => ax4SpeedMultiplier,
+
+            _ => 1f
+        };
+
+        resolved *= Mathf.Max(0.1f, perAttack);
+
+        return Mathf.Max(0.1f, resolved);
+    }
+
+    private float ScaleDurationByCurrentAttackSpeed(float duration)
+    {
+        float speed = Mathf.Max(0.1f, currentAttackSpeedMultiplier);
+        return Mathf.Max(0f, duration) / speed;
+    }
+
+    private float ScaleDurationForAttack(float duration, PlayerAttack attackData)
+    {
+        float speed = currentAttack != null && ReferenceEquals(currentAttack, attackData)
+            ? Mathf.Max(0.1f, currentAttackSpeedMultiplier)
+            : ResolveAttackSpeedMultiplier(attackData, attackData != null ? attackData.attackId : null);
+
+        return Mathf.Max(0f, duration) / speed;
     }
     #endregion
 }

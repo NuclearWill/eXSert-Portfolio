@@ -5450,10 +5450,32 @@ MonoBehaviour:
   guardAttackAutoGenerateHitbox: 0
   plungeRecoveryDelay: 0
   plungeIdleBlendTime: 0.757
+  blockAttackForwardMoveWhenEnemyNear: 1
+  attackForwardMoveBlockDistance: 1.25
+  attackForwardMoveBlockAngle: 80
   debugPlungeDamage: 1
   debugPlungeDamageInitialized: 1
   attackAudioSource: {fileID: 0}
   inputBufferWindow: 0.25
+  globalAttackSpeedMultiplier: 1
+  sx1SpeedMultiplier: 1
+  sx2SpeedMultiplier: 1
+  sx3SpeedMultiplier: 1
+  sx4SpeedMultiplier: 1
+  sx5SpeedMultiplier: 1
+  ay1SpeedMultiplier: 1
+  ay2SpeedMultiplier: 1
+  ay3SpeedMultiplier: 1
+  acX1SpeedMultiplier: 1
+  acX2SpeedMultiplier: 1
+  plungeSpeedMultiplier: 1
+  airDashAttackSpeedMultiplier: 1
+  launcherSpeedMultiplier: 1
+  guardAttackSpeedMultiplier: 1
+  ax1SpeedMultiplier: 1
+  ax2SpeedMultiplier: 1
+  ax3SpeedMultiplier: 1
+  ax4SpeedMultiplier: 1
 --- !u!114 &6348948781746406361
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5483,6 +5505,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AerialComboManager
   comboResetTime: 1
   debugMode: 0
+  requireFullLightChainBeforePlunge: 0
   plungeDamageMultiplierPerCombo: 1.25
   useAttackBasedPlungeScaling: 0
   plungeDamageMultiplierPerAerialAttack: 1.12
@@ -7846,6 +7869,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c34e62e92a160484aa309c223b8a1e94, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
+  testingOrDebugMode: 0
+  verboseMovementDebugLogs: 0
   animationController: {fileID: 5311890396266669227}
   attackManager: {fileID: 2445762002116463598}
   _jumpAction: {fileID: 8978839087202845958, guid: 2b1b6753ddb602a428e3f74f6a31bd6b, type: 3}
@@ -7855,9 +7880,15 @@ MonoBehaviour:
   jogSpeed: 3.06
   sprintSpeed: 5
   joystickWalkThreshold: 0.9
+  startInJog: 1
+  allowAnalogWalkWhileStartInJog: 0
   sprintDelaySeconds: 2
+  sprintSpeedRampRate: 10
   friction: 10
   inputReleaseGrace: 0.08
+  allowMovementWhileAttacking: 1
+  attackMovementSpeedMultiplier: 1
+  maxAttackTurnAngleWhileAttacking: 50
   landingLockDuration: 0.35
   keyboardDoubleTapWindow: 0.25
   cameraTransform: {fileID: 2957161133258383196}
@@ -7874,6 +7905,7 @@ MonoBehaviour:
   aerialLightAttackHangTime: 0.6
   plungeHoverTime: 0.13
   plungeDownSpeed: 16
+  plungeJumpLockDuration: 0.2
   aerialCombatMinHeightAboveGroundOverride: 0
   aerialCombatHeightAboveBasicJump: 0.3
   aerialCombatGroundProbeDistance: 12
@@ -7884,9 +7916,14 @@ MonoBehaviour:
     m_Bits: 8
   dashDistance: 3
   dashDuration: 0.2
+  dashAnimationTransition: 0.08
+  airDashAnimationTransition: 0.08
   maxDashCharges: 2
   dashChainDelay: 0.15
   dashCoolDown: 0.5
+  dashMomentumCarryPercent: 0.3
+  dashMomentumMaxBonusSpeed: 1.5
+  dashMomentumDecayRate: 14
   defaultExternalStunDuration: 0.35
   enableKnockbackWallCollision: 1
   knockbackWallMask:

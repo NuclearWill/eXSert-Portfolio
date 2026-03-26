@@ -20,6 +20,8 @@ public class AerialComboManager : MonoBehaviour
     [Header("Aerial Combo Settings")]
     [SerializeField, Range(0.5f, 2f)] private float comboResetTime = 1.0f;
     [SerializeField] private bool debugMode = false;
+    [SerializeField, Tooltip("When enabled, plunge (heavy aerial) is only allowed after both aerial light attacks in the chain (AC_X1 and AC_X2) have been used in the current airtime.")]
+    private bool requireFullLightChainBeforePlunge = false;
 
     [Header("Plunge Damage Scaling")]
     [SerializeField, Tooltip("Damage multiplier applied per completed aerial light combo chain (AX1+AX2). Final multiplier = multiplier^count.")]
@@ -267,6 +269,9 @@ public class AerialComboManager : MonoBehaviour
             return false;
 
         if (InputReader.inputBusy)
+            return false;
+
+        if (requireFullLightChainBeforePlunge && aerialFastCount < MAX_AERIAL_FAST_ATTACKS)
             return false;
 
         return true;
