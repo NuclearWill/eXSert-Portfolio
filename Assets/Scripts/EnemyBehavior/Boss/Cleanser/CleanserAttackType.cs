@@ -43,10 +43,10 @@ namespace EnemyBehavior.Boss.Cleanser
         SlashIntoSlap = 3,          // Two-part: halberd slash then wing backhand
         RakeIntoSpinSlash = 4,      // Wing rake followed by 360 spin slash (or just spin slash)
         SpareToss = 5,              // Projectile throw
-        // Value 6 was legacy SpinDash (old slot) and is intentionally unused.
+        // Value 6 is intentionally unused (legacy slot).
         LegSweep = 7,               // Low sweep requiring jump to avoid
         Knockback = 8,              // Pushes player away using external force
-        MiniCrescentWave = 9,       // Legacy alias (mapped to DiagUpwardSlash behavior)
+        // Value 9 was legacy MiniCrescentWave and is intentionally unused.
 
         // New/renamed moves appended to preserve existing serialized enum values.
         Cleave = 10,
@@ -54,8 +54,8 @@ namespace EnemyBehavior.Boss.Cleanser
         PommelStrike = 12,
         DiagUpwardSlash = 13,
         LungeBlock = 14,
-        WingBash = 15,
-        SpinDash = 16
+        WingBash = 15
+        // Value 16 was legacy Basic SpinDash and is intentionally unused.
     }
 
     /// <summary>
@@ -89,28 +89,31 @@ namespace EnemyBehavior.Boss.Cleanser
         [Tooltip("Wind-down animation played when movement phase ends.")]
         public string WindDownTrigger = "JumpSpinAttackWindDown";
 
-        [Header("Timing")]
-        [Tooltip("Duration of the initial wind-up phase.")]
-        public float WindupDuration = 0.25f;
+        [Header("Animation Speed Multipliers")]
+        [Tooltip("Playback speed multiplier for the wind-up animation clip.")]
+        public float WindupAnimSpeedMultiplier = 1f;
 
-        [Tooltip("Duration of the optional HP wind-up phase.")]
-        public float HPWindupDuration = 0.2f;
+        [Tooltip("Playback speed multiplier for the optional HP wind-up animation clip.")]
+        public float HPWindupAnimSpeedMultiplier = 1f;
 
-        [Tooltip("How long the hold-pose loop phase runs.")]
-        public float HoldDuration = 0.9f;
+        [Tooltip("Playback speed multiplier while HoldPose is active.")]
+        public float HoldPoseAnimSpeedMultiplier = 1f;
 
-        [Tooltip("Duration of the wind-down phase.")]
-        public float WindDownDuration = 0.25f;
+        [Tooltip("Playback speed multiplier for the wind-down animation clip.")]
+        public float WindDownAnimSpeedMultiplier = 1f;
 
         [Header("Movement")]
         [Tooltip("Ground movement speed during the hold-pose loop.")]
         public float MoveSpeed = 12f;
 
-        [Tooltip("Maximum distance to travel during the hold-pose loop.")]
+        [Tooltip("Distance threshold: above this, dash segment travel time uses LongDistanceTravelDuration instead of MoveSpeed.")]
         public float MaxTravelDistance = 10f;
 
-        [Tooltip("If true, continuously retargets the player during the hold phase.")]
-        public bool TrackPlayerDuringHold = true;
+        [Tooltip("Travel time used for long dash segments (distance above MaxTravelDistance threshold).")]
+        public float LongDistanceTravelDuration = 0.2f;
+
+        [Tooltip("If true, continuously updates the final dash target toward the player's current position.")]
+        public bool TrackPlayerDuringHold = false;
 
         [Header("Damage")]
         [Tooltip("Damage per hit tick while spinning.")]
@@ -137,6 +140,69 @@ namespace EnemyBehavior.Boss.Cleanser
 
         [Tooltip("Optional VFX prefab spawned for the spinning phase.")]
         public GameObject SpinVFX;
+    }
+
+    /// <summary>
+    /// Detailed configuration for the Anime Dash Slash strong finisher.
+    /// </summary>
+    [System.Serializable]
+    public class AnimeDashSlashConfig
+    {
+        [Header("Animation")]
+        [Tooltip("Animation trigger for Anime Dash Slash.")]
+        public string AnimationTrigger = "Attack_AnimeDash";
+
+        [Tooltip("Playback speed multiplier for Anime Dash Slash animation clip.")]
+        public float AnimationSpeedMultiplier = 1f;
+
+        [Tooltip("Delay after triggering animation before dash movement starts.")]
+        public float PreDashDelay = 0.3f;
+
+        [Tooltip("Delay after all dashes complete before returning control.")]
+        public float PostDashDelay = 0f;
+
+        [Header("Dash Path")]
+        [Tooltip("Number of dash target positions used for this attack.")]
+        public int DashTargetCount = 5;
+
+        [Tooltip("Distance from center to each dash target position.")]
+        public float DashTargetRadius = 6f;
+
+        [Tooltip("Angle step between dash target points in degrees (144 creates star-like pattern).")]
+        public float DashAngleStepDegrees = 144f;
+
+        [Tooltip("If true, captures player position once at dash start as the center point.")]
+        public bool UsePlayerPositionAsCenterAtStart = true;
+
+        [Header("Dash Timing")]
+        [Tooltip("Duration to move from one dash target to the next.")]
+        public float DashTravelDuration = 0.15f;
+
+        [Tooltip("How long to remain at each target before moving to the next.")]
+        public float PauseAtTargetDuration = 0.1f;
+
+        [Tooltip("How quickly the boss rotates to face the dash direction.")]
+        public float TurnSpeed = 14f;
+
+        [Header("Damage")]
+        [Tooltip("Damage applied when the dash hit window connects.")]
+        public float DamagePerHit = 12f;
+
+        [Tooltip("If true, AnimeDash uses the SpinDash collider bounds for hit range. If false, uses FallbackHitRange.")]
+        public bool UseSpinDashColliderForHitRange = true;
+
+        [Tooltip("Fallback hit range used when UseSpinDashColliderForHitRange is disabled or collider is unavailable.")]
+        public float HitRange = 3f;
+
+        [Tooltip("Normalized dash progress when hit window starts (0-1).")]
+        [Range(0f, 1f)] public float HitWindowStart = 0.4f;
+
+        [Tooltip("Normalized dash progress when hit window ends (0-1).")]
+        [Range(0f, 1f)] public float HitWindowEnd = 0.6f;
+
+        [Header("SFX/VFX")]
+        [Tooltip("Sound effect played when Anime Dash Slash starts.")]
+        public AudioClip AttackSFX;
     }
 
     /// <summary>
@@ -167,6 +233,9 @@ namespace EnemyBehavior.Boss.Cleanser
         [Header("Animation")]
         [Tooltip("Animation trigger for the spare toss attack.")]
         public string AnimationTrigger = "Attack_SpareToss";
+
+        [Tooltip("Playback speed multiplier for the spare toss animation clip.")]
+        public float AnimationSpeedMultiplier = 1f;
 
         [Header("Throw Type")]
         [Tooltip("If true, throws sequentially (one after another). If false, throws simultaneously.")]
@@ -333,6 +402,9 @@ namespace EnemyBehavior.Boss.Cleanser
         [Tooltip("Animation trigger for the whirlwind attack.")]
         public string AnimationTrigger = "Attack_Whirlwind";
 
+        [Tooltip("Playback speed multiplier for the whirlwind animation clip.")]
+        public float AnimationSpeedMultiplier = 1f;
+
         [Header("Suction")]
         [Tooltip("Duration of the spinning suction phase.")]
         public float SuctionDuration = 4f;
@@ -389,6 +461,9 @@ namespace EnemyBehavior.Boss.Cleanser
         [Header("Animation")]
         [Tooltip("Main double-sweep animation.")]
         public string UltimateTrigger = "Ultimate";
+
+        [Tooltip("Playback speed multiplier applied to ultimate animation clips.")]
+        public float AnimationSpeedMultiplier = 1f;
 
         [Tooltip("Jump arc animation used for repositioning/float setup.")]
         public string JumpArcBaseTrigger = "JumpArcBase";
@@ -509,6 +584,9 @@ namespace EnemyBehavior.Boss.Cleanser
         [Header("Animation")]
         [Tooltip("Single animator trigger for the full attack animation. Animation events drive timing.")]
         public string AnimationTrigger;
+
+        [Tooltip("Playback speed multiplier for this attack animation clip.")]
+        public float AnimationSpeedMultiplier = 1f;
         
         [Header("Multi-Part Attack")]
         [Tooltip("If true, this attack has multiple damage phases with different rules.")]
@@ -571,6 +649,9 @@ namespace EnemyBehavior.Boss.Cleanser
         [Tooltip("Animation trigger for the knockback attack.")]
         public string AnimationTrigger = "Knockback";
 
+        [Tooltip("Playback speed multiplier for the knockback animation clip.")]
+        public float AnimationSpeedMultiplier = 1f;
+
         [Header("SFX/VFX")]
         [Tooltip("Sound effect when attack starts.")]
         public AudioClip AttackSFX;
@@ -608,6 +689,9 @@ namespace EnemyBehavior.Boss.Cleanser
         [Header("Animation")]
         [Tooltip("Animation trigger for the dash.")]
         public string AnimationTrigger = "GapCloseDash";
+
+        [Tooltip("Playback speed multiplier for the dash animation clip.")]
+        public float AnimationSpeedMultiplier = 1f;
 
         [Header("SFX/VFX")]
         [Tooltip("Sound effect during dash.")]
