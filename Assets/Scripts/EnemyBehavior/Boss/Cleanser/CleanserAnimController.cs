@@ -550,14 +550,12 @@ namespace EnemyBehavior.Boss.Cleanser
             if (!forceRestart && currentState == stateName)
                 return;
 
-            // Verify state exists in animator
+            float crossFade = transition >= 0f ? transition : defaultTransition;
             if (!StateExists(stateName))
             {
-                Debug.LogWarning($"[CleanserAnimController] State '{stateName}' not found on Animator layer {layerIndex}.", this);
-                return;
+                Debug.LogWarning($"[CleanserAnimController] State '{stateName}' not found via HasState on layer {layerIndex}. Attempting CrossFade anyway.", this);
             }
 
-            float crossFade = transition >= 0f ? transition : defaultTransition;
             animator.CrossFadeInFixedTime(stateName, crossFade, layerIndex, 0f);
             currentState = stateName;
         }
@@ -631,17 +629,22 @@ namespace EnemyBehavior.Boss.Cleanser
             if (string.IsNullOrWhiteSpace(stateName))
                 return stateName;
 
+            stateName = stateName.Trim();
+
             if (LegacyStateAliases.TryGetValue(stateName, out string normalizedState))
                 return normalizedState;
 
             if (stateName.StartsWith("C_", System.StringComparison.OrdinalIgnoreCase))
-                return stateName.Substring(2);
+                stateName = stateName.Substring(2);
 
             if (stateName.StartsWith("Attack_", System.StringComparison.OrdinalIgnoreCase))
-                return stateName.Substring("Attack_".Length);
+                stateName = stateName.Substring("Attack_".Length);
 
             if (stateName.StartsWith("Dash_", System.StringComparison.OrdinalIgnoreCase))
-                return stateName.Substring("Dash_".Length);
+                stateName = stateName.Substring("Dash_".Length);
+
+            if (LegacyStateAliases.TryGetValue(stateName, out normalizedState))
+                return normalizedState;
 
             return stateName;
         }
