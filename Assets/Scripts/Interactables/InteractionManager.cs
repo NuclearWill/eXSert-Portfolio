@@ -50,7 +50,7 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
         interactId = _interactId.Trim().ToLowerInvariant();
     }
 
-    private void OnEnable()
+    protected virtual void OnEnable()
     {
         if (_interactInputAction != null)
         {
@@ -60,7 +60,7 @@ public abstract class InteractionManager : MonoBehaviour, IInteractable
         }
     }
 
-    private void OnDisable()
+    protected virtual void OnDisable()
     {
         if (_interactInputAction != null)
             _interactInputAction.action.performed -= OnInteract;
