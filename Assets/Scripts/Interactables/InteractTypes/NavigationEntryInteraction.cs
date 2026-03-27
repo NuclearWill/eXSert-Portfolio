@@ -6,6 +6,7 @@
 
 using UnityEngine.UI;
 using UnityEngine;
+using System;
 
 public class NavigationEntryInteraction : CollectableInteraction
 {
@@ -19,6 +20,8 @@ public class NavigationEntryInteraction : CollectableInteraction
     [Header("Entry Type")]
     [SerializeField] private bool isDiary;
     [SerializeField] private bool isLog;
+
+    public event Action<string> OnEntryCollected;
 
     private void OnEnable()
     {
@@ -120,6 +123,9 @@ public class NavigationEntryInteraction : CollectableInteraction
             
             DiaryManager.Instance.unreadDiaries.Add(diarySO);
         }
+
+        Debug.Log($"Collected entry with id: {this.interactId}");
+        OnEntryCollected?.Invoke(interactId);
     }
 
 }
