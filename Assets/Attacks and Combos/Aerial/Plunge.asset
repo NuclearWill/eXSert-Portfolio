@@ -15,15 +15,15 @@ MonoBehaviour:
   _attackId: Plunge
   _attackName: Plunge
   _comboStage: 1
-  _isFinisher: 0
+  _isFinisher: 1
   _attackType: 2
   _attackWeight: 1
   _damage: 25
   _launch: 0
   _knockback: 3
   _knockbackAngle: 0
-  _customRange: 0
-  _range: 1.5
+  _customRange: 1
+  _range: 4
   _customWidth: 0
   _width: 1
   _defaultDistanceFromPlayer: 1

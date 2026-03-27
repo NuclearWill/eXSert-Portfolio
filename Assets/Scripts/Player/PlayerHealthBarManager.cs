@@ -183,7 +183,7 @@ public class PlayerHealthBarManager : MonoBehaviour, IHealthSystem, IDataPersist
 
     public void LoseHP(float damage)
     {
-        if (isDead || invulnerable || IsTemporarilyInvincible() || damage <= 0f)
+        if (isDead || invulnerable || IsTemporarilyInvincible() || damage <= 0f || PlayerMovement.IsTestingOrDebugMode)
             return;
 
         float previous = currentHealth;
@@ -192,13 +192,39 @@ public class PlayerHealthBarManager : MonoBehaviour, IHealthSystem, IDataPersist
         if (playerHurtSFX != null && playerHurtSFX.Length > 0)
         {
             int index = UnityEngine.Random.Range(0, playerHurtSFX.Length);
-            SoundManager.Instance.voiceSource.PlayOneShot(playerHurtSFX[index]);
+            AudioClip clip = playerHurtSFX[index];
+            if (clip != null)
+            {
+                SoundManager soundManager = SoundManager.Instance;
+                AudioSource source = soundManager != null ? soundManager.voiceSource : null;
+                if (source != null)
+                {
+                    source.PlayOneShot(clip);
+                }
+                else if (!PlayerMovement.IsTestingOrDebugMode)
+                {
+                    Debug.LogError("[PlayerHealthBarManager] Cannot play hurt SFX because SoundManager.voiceSource is missing.");
+                }
+            }
         }
 
         if (impactSFX != null && impactSFX.Length > 0)
         {
             int index = UnityEngine.Random.Range(0, impactSFX.Length);
-            SoundManager.Instance.sfxSource.PlayOneShot(impactSFX[index]);
+            AudioClip clip = impactSFX[index];
+            if (clip != null)
+            {
+                SoundManager soundManager = SoundManager.Instance;
+                AudioSource source = soundManager != null ? soundManager.sfxSource : null;
+                if (source != null)
+                {
+                    source.PlayOneShot(clip);
+                }
+                else if (!PlayerMovement.IsTestingOrDebugMode)
+                {
+                    Debug.LogError("[PlayerHealthBarManager] Cannot play impact SFX because SoundManager.sfxSource is missing.");
+                }
+            }
         }
 
         float actual = previous - currentHealth;
@@ -280,6 +306,10 @@ public class PlayerHealthBarManager : MonoBehaviour, IHealthSystem, IDataPersist
     public void SetCurrentHealth(float newCurrentHealth)
     {
         currentHealth = Mathf.Clamp(newCurrentHealth, 0f, maxHealth);
+
+        if (PlayerMovement.IsTestingOrDebugMode && currentHealth <= 0f)
+            currentHealth = Mathf.Max(1f, maxHealth * 0.1f);
+
         NotifyHealthChanged();
 
         if (currentHealth <= 0f)
@@ -334,6 +364,14 @@ public class PlayerHealthBarManager : MonoBehaviour, IHealthSystem, IDataPersist
     public void HandleDeath(bool playDeathAnimation)
     {
         if (isDead) return;
+
+        if (PlayerMovement.IsTestingOrDebugMode)
+        {
+            isDead = false;
+            currentHealth = Mathf.Max(1f, currentHealth);
+            NotifyHealthChanged();
+            return;
+        }
 
         isDead = true;
         

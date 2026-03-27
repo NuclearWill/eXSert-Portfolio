@@ -43,6 +43,20 @@ public class PlayerAttackManager : MonoBehaviour
     [SerializeField, Tooltip("Cross-fade duration when exiting a plunge into combat idle.")]
     [Range(0f, 1f)] private float plungeIdleBlendTime = 0.25f;
 
+    [Header("Plunge Drone Effects")]
+    [SerializeField, Tooltip("Enable plunge-specific drone effects (shared splash + optional physics collapse).")]
+    private bool enablePlungeDroneEffects = true;
+    [SerializeField, Tooltip("Enable simple rigidbody physics collapse for drones killed by plunge.")]
+    private bool enablePlungeDronePhysicsCollapse = true;
+    [SerializeField, Range(0f, 10f), Tooltip("Shared splash radius around a drone killed by plunge to damage nearby drones.")]
+    private float plungeDroneSharedSplashRadius = 2.5f;
+    [SerializeField, Tooltip("Layer mask used for nearby drone splash checks.")]
+    private LayerMask plungeDroneSplashMask = ~0;
+    [SerializeField, Range(0f, 60f), Tooltip("Downward velocity applied when drone collapse starts.")]
+    private float plungeDroneCollapseDownwardVelocity = 16f;
+    [SerializeField, Range(0f, 30f), Tooltip("Horizontal push applied away from impact center when drone collapse starts.")]
+    private float plungeDroneCollapseRadialForce = 6f;
+
     [Header("Attack Forward Move Blocking")]
     [SerializeField, Tooltip("If enabled, attack forward movement is skipped when an alive enemy is too close in front of the player.")]
     private bool blockAttackForwardMoveWhenEnemyNear = true;
@@ -642,7 +656,8 @@ public class PlayerAttackManager : MonoBehaviour
         var source = attackAudioSource != null ? attackAudioSource : fallbackSfxSource;
         if (source == null)
         {
-            Debug.LogError("[PlayerAttackManager] No AudioSource available! attackAudioSource and fallbackSfxSource are both null. Check SoundManager.Instance.");
+            if (!PlayerMovement.IsTestingOrDebugMode)
+                Debug.LogError("[PlayerAttackManager] No AudioSource available! attackAudioSource and fallbackSfxSource are both null. Check SoundManager.Instance.");
             return;
         }
 
@@ -677,19 +692,36 @@ public class PlayerAttackManager : MonoBehaviour
         if (activeHitbox != null
             && currentAttack != null
             && ReferenceEquals(attack, currentAttack)
-            && currentAttack.attackType == AttackType.HeavyAerial
             && activeHitbox.TryGetComponent<HitboxDamageManager>(out var damageManager))
         {
-            float multiplier = Mathf.Max(1f, currentAttackDamageMultiplier);
-            float scaledDamage = currentAttack.damage * multiplier;
-            damageManager.Configure(currentAttack.attackName, scaledDamage, currentAttack.maxTargetsPerActivation);
+            bool isHeavyAerial = currentAttack.attackType == AttackType.HeavyAerial;
+            bool isLightAerial = currentAttack.attackType == AttackType.LightAerial;
 
-            if (debugPlungeDamage)
+            if (isHeavyAerial)
             {
-                Debug.Log(
-                    $"[PlayerAttackManager] Plunge hitbox spawned: '{currentAttack.attackId}' base={currentAttack.damage} x{multiplier:0.##} => {scaledDamage:0.##}"
-                );
+                float multiplier = Mathf.Max(1f, currentAttackDamageMultiplier);
+                float scaledDamage = currentAttack.damage * multiplier;
+                damageManager.Configure(currentAttack.attackName, scaledDamage, currentAttack.maxTargetsPerActivation);
+                damageManager.ConfigurePlungeDroneEffects(
+                    enablePlungeDroneEffects,
+                    enablePlungeDronePhysicsCollapse,
+                    plungeDroneSharedSplashRadius,
+                    plungeDroneSplashMask,
+                    plungeDroneCollapseDownwardVelocity,
+                    plungeDroneCollapseRadialForce);
+
+                if (debugPlungeDamage)
+                {
+                    Debug.Log(
+                        $"[PlayerAttackManager] Plunge hitbox spawned: '{currentAttack.attackId}' base={currentAttack.damage} x{multiplier:0.##} => {scaledDamage:0.##}"
+                    );
+                }
             }
+
+            damageManager.ConfigureAerialDroneReposition(
+                isLightAerial,
+                transform.position,
+                transform.forward);
         }
 
         PlayAttackVfx(attack, spawnPosition, spawnRotation);

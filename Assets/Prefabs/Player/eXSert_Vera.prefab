@@ -5450,6 +5450,14 @@ MonoBehaviour:
   guardAttackAutoGenerateHitbox: 0
   plungeRecoveryDelay: 0
   plungeIdleBlendTime: 0.757
+  enablePlungeDroneEffects: 1
+  enablePlungeDronePhysicsCollapse: 1
+  plungeDroneSharedSplashRadius: 2.5
+  plungeDroneSplashMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  plungeDroneCollapseDownwardVelocity: 16
+  plungeDroneCollapseRadialForce: 6
   blockAttackForwardMoveWhenEnemyNear: 1
   attackForwardMoveBlockDistance: 1.25
   attackForwardMoveBlockAngle: 80
@@ -5505,10 +5513,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::AerialComboManager
   comboResetTime: 1
   debugMode: 0
-  requireFullLightChainBeforePlunge: 0
-  plungeDamageMultiplierPerCombo: 1.25
-  useAttackBasedPlungeScaling: 0
-  plungeDamageMultiplierPerAerialAttack: 1.12
+  plungeDamageMultiplierFullLightChain: 1.5
+  plungeDamageMultiplierWithoutFullLightChain: 1
   characterController: {fileID: 2289477533837267770}
   animationController: {fileID: 5311890396266669227}
   attackDatabase: {fileID: 11400000, guid: 5faf74d628b25214ca871b83ff4b455d, type: 2}
@@ -7902,10 +7908,34 @@ MonoBehaviour:
   jumpEventTimeout: 0.12
   canDoubleJump: 1
   aerialComboManager: {fileID: 5206229162919500938}
+  attackLockSystem: {fileID: 0}
   aerialLightAttackHangTime: 0.6
   plungeHoverTime: 0.13
   plungeDownSpeed: 16
   plungeJumpLockDuration: 0.2
+  enableAerialTargetAssist: 1
+  enableLightAerialTargetAssist: 1
+  enablePlungeTargetAssist: 1
+  aerialTargetAssistRange: 10
+  aerialTargetAssistAngle: 120
+  aerialTargetAssistMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  prioritizeHardLockForAerialAssist: 1
+  allowAerialAssistRetarget: 1
+  aerialAssistRetargetInterval: 0.08
+  aerialLightAssistHorizontalSpeed: 10
+  plungeAssistHorizontalSpeed: 13
+  aerialAssistVerticalSpeed: 10
+  lightAerialAssistTargetYOffset: 0
+  plungeAssistTargetYOffset: 0.75
+  aerialAssistVelocityBlendRate: 30
+  aerialTargetAssistStopDistance: 0.8
+  aerialLightAssistDurationMultiplier: 1
+  plungeAssistExtraDuration: 0.12
+  plungeAssistMinDuration: 0.08
+  allowInputSteeringDuringAerialAssist: 0
+  suppressAttackForwardMoveDuringAerialAssist: 1
   aerialCombatMinHeightAboveGroundOverride: 0
   aerialCombatHeightAboveBasicJump: 0.3
   aerialCombatGroundProbeDistance: 12

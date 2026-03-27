@@ -9,6 +9,7 @@ This script is used to determine how much damage should be dealt when collided w
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using Utilities.Combat.Attacks;
 
 [RequireComponent(typeof(BoxCollider))]
 public class HitboxDamageManager : MonoBehaviour, IAttackSystem
@@ -20,8 +21,37 @@ public class HitboxDamageManager : MonoBehaviour, IAttackSystem
     [SerializeField, Tooltip("Tag treated as a boss target for damage.")]
     private string bossTag = "Boss";
 
+    [Header("Plunge Drone Effects")]
+    [SerializeField, Tooltip("When enabled, heavy aerial plunge kills on drones can trigger shared splash damage and physics-collapse behavior.")]
+    private bool enablePlungeDroneEffects;
+    [SerializeField, Tooltip("When enabled, drones killed by plunge are switched to simple physics collapse (single rigidbody) with no animation.")]
+    private bool enablePlungeDronePhysicsCollapse = true;
+    [SerializeField, Range(0f, 10f), Tooltip("Additional shared radius around a killed drone to apply plunge damage to nearby drones.")]
+    private float plungeDroneSharedSplashRadius = 2.5f;
+    [SerializeField, Tooltip("Layer mask used when checking for nearby drones in shared plunge splash.")]
+    private LayerMask plungeDroneSplashMask = ~0;
+    [SerializeField, Range(0f, 60f), Tooltip("Downward velocity applied to drones when physics collapse starts.")]
+    private float plungeDroneCollapseDownwardVelocity = 16f;
+    [SerializeField, Range(0f, 30f), Tooltip("Horizontal push force away from plunge impact center applied on collapse.")]
+    private float plungeDroneCollapseRadialForce = 6f;
+
+    [Header("Aerial Drone Reposition Assist")]
+    [SerializeField, Tooltip("When enabled, light aerial hits on alive drones nudge them away so follow-up aerial assists can reconnect more reliably.")]
+    private bool enableLightAerialDroneReposition = true;
+    [SerializeField, Range(0f, 8f), Tooltip("Horizontal displacement applied to drones hit by light aerial attacks.")]
+    private float lightAerialDroneRepositionDistance = 1.8f;
+    [SerializeField, Range(-1f, 3f), Tooltip("Vertical offset applied when nudging drones on light aerial hit.")]
+    private float lightAerialDroneRepositionVerticalOffset = 0.35f;
+    [SerializeField, Range(0f, 2f), Tooltip("Only apply light-aerial drone reposition when the player is at least this much below the drone.")]
+    private float lightAerialDroneRepositionMinPlayerBelow = 0.1f;
+    [SerializeField, Range(0f, 1f), Tooltip("Blend between away-from-player direction (0) and attacker-forward direction (1).")]
+    private float lightAerialDroneRepositionForwardBias = 0.45f;
+
     private BoxCollider boxCollider;
     private HashSet<int> hitThisActivation = new HashSet<int>(); // Track which enemies were hit during this activation
+    private bool currentHitboxIsLightAerial;
+    private Vector3 cachedAttackerPosition;
+    private Vector3 cachedAttackerForward = Vector3.forward;
     float IAttackSystem.damageAmount => damageAmount;
     string IAttackSystem.weaponName => weaponName;
     public void Configure(string weapon, float damage, int maxTargets)
@@ -29,6 +59,32 @@ public class HitboxDamageManager : MonoBehaviour, IAttackSystem
         weaponName = weapon;
         damageAmount = damage;
         maxTargetsPerActivation = Mathf.Max(0, maxTargets);
+    }
+
+    public void ConfigurePlungeDroneEffects(
+        bool enableEffects,
+        bool enablePhysicsCollapse,
+        float sharedSplashRadius,
+        LayerMask splashMask,
+        float collapseDownwardVelocity,
+        float collapseRadialForce)
+    {
+        enablePlungeDroneEffects = enableEffects;
+        enablePlungeDronePhysicsCollapse = enablePhysicsCollapse;
+        plungeDroneSharedSplashRadius = Mathf.Max(0f, sharedSplashRadius);
+        plungeDroneSplashMask = splashMask;
+        plungeDroneCollapseDownwardVelocity = Mathf.Max(0f, collapseDownwardVelocity);
+        plungeDroneCollapseRadialForce = Mathf.Max(0f, collapseRadialForce);
+    }
+
+    public void ConfigureAerialDroneReposition(
+        bool isLightAerialHitbox,
+        Vector3 attackerPosition,
+        Vector3 attackerForward)
+    {
+        currentHitboxIsLightAerial = isLightAerialHitbox;
+        cachedAttackerPosition = attackerPosition;
+        cachedAttackerForward = attackerForward;
     }
 
 
@@ -158,6 +214,20 @@ public class HitboxDamageManager : MonoBehaviour, IAttackSystem
         float beforeHP = health.currentHP;
         health.LoseHP(damageAmount);
         float afterHP = health.currentHP;
+
+        if (currentHitboxIsLightAerial && afterHP > 0f)
+        {
+            DroneEnemy liveDrone = healthComp.GetComponentInParent<DroneEnemy>();
+            if (liveDrone != null)
+                TryApplyLightAerialDroneReposition(liveDrone);
+        }
+
+        if (enablePlungeDroneEffects && afterHP <= 0f)
+        {
+            var primaryDrone = healthComp.GetComponentInParent<DroneEnemy>();
+            if (primaryDrone != null)
+                ApplyPlungeDroneKillEffects(primaryDrone);
+        }
         
         // Debug.Log($"SUCCESS: {weaponName} hit {healthComp.name} for {damageAmount} damage! Health: {beforeHP} -> {afterHP} (Max: {health.maxHP})");
         
@@ -168,6 +238,93 @@ public class HitboxDamageManager : MonoBehaviour, IAttackSystem
             enemy.TryFireTriggerByName("Attacked");
             // Debug.Log($"{weaponName} fired 'Attacked' trigger on {enemy.name}");
         }
+    }
+
+    private void ApplyPlungeDroneKillEffects(DroneEnemy primaryDrone)
+    {
+        if (primaryDrone == null)
+            return;
+
+        Vector3 impactCenter = primaryDrone.transform.position;
+        TryApplyDronePhysicsCollapse(primaryDrone, impactCenter);
+
+        if (plungeDroneSharedSplashRadius <= 0f)
+            return;
+
+        Collider[] nearby = Physics.OverlapSphere(
+            impactCenter,
+            plungeDroneSharedSplashRadius,
+            plungeDroneSplashMask,
+            QueryTriggerInteraction.Ignore);
+
+        foreach (Collider col in nearby)
+        {
+            if (col == null)
+                continue;
+
+            DroneEnemy nearbyDrone = col.GetComponentInParent<DroneEnemy>();
+            if (nearbyDrone == null || ReferenceEquals(nearbyDrone, primaryDrone) || !nearbyDrone.isAlive)
+                continue;
+
+            int droneId = nearbyDrone.GetInstanceID();
+            if (hitThisActivation.Contains(droneId))
+                continue;
+
+            hitThisActivation.Add(droneId);
+
+            float hpBefore = nearbyDrone.currentHP;
+            nearbyDrone.LoseHP(damageAmount);
+            if (hpBefore > 0f && nearbyDrone.currentHP <= 0f)
+                TryApplyDronePhysicsCollapse(nearbyDrone, impactCenter);
+        }
+    }
+
+    private void TryApplyDronePhysicsCollapse(DroneEnemy drone, Vector3 impactCenter)
+    {
+        if (!enablePlungeDronePhysicsCollapse || drone == null)
+            return;
+
+        drone.ApplyPlungePhysicsCollapse(
+            impactCenter,
+            plungeDroneCollapseDownwardVelocity,
+            plungeDroneCollapseRadialForce);
+    }
+
+    private void TryApplyLightAerialDroneReposition(DroneEnemy drone)
+    {
+        if (!enableLightAerialDroneReposition || drone == null || !drone.isAlive)
+            return;
+
+        float distance = Mathf.Max(0f, lightAerialDroneRepositionDistance);
+        if (distance <= 0f)
+            return;
+
+        float yDelta = drone.transform.position.y - cachedAttackerPosition.y;
+        if (yDelta < lightAerialDroneRepositionMinPlayerBelow)
+            return;
+
+        Vector3 awayFromPlayer = drone.transform.position - cachedAttackerPosition;
+        awayFromPlayer.y = 0f;
+
+        Vector3 forward = cachedAttackerForward;
+        forward.y = 0f;
+
+        if (awayFromPlayer.sqrMagnitude < 0.0001f)
+            awayFromPlayer = forward.sqrMagnitude > 0.0001f ? forward : drone.transform.forward;
+
+        if (forward.sqrMagnitude < 0.0001f)
+            forward = awayFromPlayer;
+
+        awayFromPlayer.Normalize();
+        forward.Normalize();
+
+        float bias = Mathf.Clamp01(lightAerialDroneRepositionForwardBias);
+        Vector3 direction = Vector3.Slerp(awayFromPlayer, forward, bias).normalized;
+        if (direction.sqrMagnitude < 0.0001f)
+            direction = awayFromPlayer;
+
+        Vector3 displacement = direction * distance;
+        drone.ApplyAerialHitDisplacement(displacement, lightAerialDroneRepositionVerticalOffset);
     }
     
     private void OnTriggerEnter(Collider other)

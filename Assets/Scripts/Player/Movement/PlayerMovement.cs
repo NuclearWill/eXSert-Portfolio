@@ -152,6 +152,7 @@ public class PlayerMovement : MonoBehaviour
 
     [Header("Aerial Combat Integration")]
     [SerializeField] private AerialComboManager aerialComboManager;
+    [SerializeField] private AttackLockSystem attackLockSystem;
     [SerializeField, Tooltip("How long to freeze vertical velocity during aerial light attacks")]
     [Range(0.05f, 0.6f)] private float aerialLightAttackHangTime = 0.22f;
     [SerializeField, Tooltip("Initial hover duration before plunging downward")] 
@@ -160,6 +161,50 @@ public class PlayerMovement : MonoBehaviour
     [Range(10f, 60f)] private float plungeDownSpeed = 32f;
     [SerializeField, Tooltip("How long jump input is blocked after landing from a plunge attack.")]
     [Range(0f, 1.5f)] private float plungeJumpLockDuration = 0.2f;
+
+    [Header("Aerial Target Assist")]
+    [SerializeField, Tooltip("When enabled, aerial light/plunge attacks pull the player toward nearby lock targets and align vertical level.")]
+    private bool enableAerialTargetAssist = true;
+    [SerializeField, Tooltip("Enable assist during aerial light attacks.")]
+    private bool enableLightAerialTargetAssist = true;
+    [SerializeField, Tooltip("Enable assist during plunge startup.")]
+    private bool enablePlungeTargetAssist = true;
+    [SerializeField, Range(0f, 20f), Tooltip("Maximum distance for aerial assist target acquisition.")]
+    private float aerialTargetAssistRange = 10f;
+    [SerializeField, Range(0f, 180f), Tooltip("Forward cone angle used for soft target acquisition when no hard lock target exists.")]
+    private float aerialTargetAssistAngle = 120f;
+    [SerializeField, Tooltip("Layers used for aerial target assist overlap checks.")]
+    private LayerMask aerialTargetAssistMask = ~0;
+    [SerializeField, Tooltip("When true, hard-lock targets are preferred over nearby targets.")]
+    private bool prioritizeHardLockForAerialAssist = true;
+    [SerializeField, Tooltip("When true, assist can re-acquire nearby targets while active if the current target is lost.")]
+    private bool allowAerialAssistRetarget = true;
+    [SerializeField, Range(0.01f, 0.5f), Tooltip("How often assist can attempt to re-acquire a target while active.")]
+    private float aerialAssistRetargetInterval = 0.08f;
+    [SerializeField, Range(0f, 40f), Tooltip("Horizontal pull speed during aerial light attacks.")]
+    private float aerialLightAssistHorizontalSpeed = 10f;
+    [SerializeField, Range(0f, 40f), Tooltip("Horizontal pull speed during plunge startup.")]
+    private float plungeAssistHorizontalSpeed = 13f;
+    [SerializeField, Range(0f, 40f), Tooltip("Vertical alignment speed used by aerial target assist.")]
+    private float aerialAssistVerticalSpeed = 10f;
+    [SerializeField, Range(-3f, 3f), Tooltip("Vertical offset added to light aerial assist target position. Positive values keep the player slightly above the target.")]
+    private float lightAerialAssistTargetYOffset = 0f;
+    [SerializeField, Range(-3f, 3f), Tooltip("Vertical offset added to plunge assist target position. Positive values place the player above the target.")]
+    private float plungeAssistTargetYOffset = 0.75f;
+    [SerializeField, Range(1f, 120f), Tooltip("How quickly assist velocity blends toward desired velocity. Higher = snappier, lower = smoother.")]
+    private float aerialAssistVelocityBlendRate = 30f;
+    [SerializeField, Range(0f, 5f), Tooltip("Distance from target at which aerial assist stops pulling horizontally.")]
+    private float aerialTargetAssistStopDistance = 0.8f;
+    [SerializeField, Range(0.05f, 2f), Tooltip("Duration multiplier applied to light aerial assist lock time.")]
+    private float aerialLightAssistDurationMultiplier = 1f;
+    [SerializeField, Range(0f, 1f), Tooltip("Additional seconds added to plunge assist duration.")]
+    private float plungeAssistExtraDuration = 0.12f;
+    [SerializeField, Range(0.01f, 0.6f), Tooltip("Minimum duration for plunge assist.")]
+    private float plungeAssistMinDuration = 0.08f;
+    [SerializeField, Tooltip("When false, input-based movement is suppressed during active aerial assist to prevent movement fighting/jitter.")]
+    private bool allowInputSteeringDuringAerialAssist = false;
+    [SerializeField, Tooltip("When enabled, attack forward-move velocity is ignored while aerial assist is active to prevent competing horizontal motion.")]
+    private bool suppressAttackForwardMoveDuringAerialAssist = true;
 
     [Header("Aerial Combat Height Gate")]
     [SerializeField, Tooltip("Minimum distance above ground required to start aerial attacks/plunge. If 0, uses (basic jump height + extra).")]
@@ -325,6 +370,13 @@ public class PlayerMovement : MonoBehaviour
     private Vector3 attackFacingLockForward = Vector3.forward;
     private bool plungeJumpLocked;
     private Coroutine plungeJumpLockRoutine;
+    private Vector3 aerialAssistVelocity = Vector3.zero;
+    private bool aerialAssistActive;
+    private Coroutine aerialAssistRoutine;
+    private Transform aerialAssistTarget;
+    private float activeAerialAssistHorizontalSpeed;
+    private float activeAerialAssistTargetYOffset;
+    private float nextAerialAssistRetargetTime;
 
     private Transform ResolveCameraTransform()
     {
@@ -435,6 +487,11 @@ public class PlayerMovement : MonoBehaviour
             ?? GetComponentInChildren<PlayerAttackManager>()
             ?? GetComponentInParent<PlayerAttackManager>();
 
+        attackLockSystem = attackLockSystem
+            ?? GetComponent<AttackLockSystem>()
+            ?? GetComponentInChildren<AttackLockSystem>()
+            ?? GetComponentInParent<AttackLockSystem>();
+
         combatIdleController = GetComponent<PlayerCombatIdleController>()
             ?? GetComponentInChildren<PlayerCombatIdleController>()
             ?? GetComponentInParent<PlayerCombatIdleController>()
@@ -497,6 +554,8 @@ public class PlayerMovement : MonoBehaviour
         }
         plungeJumpLocked = false;
 
+        StopAerialTargetAssist();
+
         // Stop any running coroutines we own to avoid keeping this MonoBehaviour alive
         if (dashRoutine != null)
         {
@@ -548,6 +607,8 @@ public class PlayerMovement : MonoBehaviour
             plungeJumpLockRoutine = null;
         }
         plungeJumpLocked = false;
+
+        StopAerialTargetAssist();
 
         if (dashRoutine != null)
         {
@@ -643,6 +704,7 @@ public class PlayerMovement : MonoBehaviour
     private void Move()
     {
         bool attackMovementActive = IsAttackMovementActive();
+        bool suppressInputForAssist = aerialAssistActive && !allowInputSteeringDuringAerialAssist;
 
         if (attackMovementActive)
         {
@@ -660,7 +722,7 @@ public class PlayerMovement : MonoBehaviour
             attackFacingLockInitialized = false;
         }
 
-        if ((InputReader.inputBusy && !attackMovementActive) || isDashing)
+        if ((InputReader.inputBusy && !attackMovementActive) || isDashing || suppressInputForAssist)
         {
             currentMovement.x = 0f;
             currentMovement.z = 0f;
@@ -1289,6 +1351,8 @@ public class PlayerMovement : MonoBehaviour
             currentMovement.y = 0f;
             airborneAnimationLocked = true;
             fallingAnimationPlaying = false;
+            if (enableLightAerialTargetAssist)
+                StartAerialTargetAssist(AttackType.LightAerial, lockDuration * Mathf.Max(0.05f, aerialLightAssistDurationMultiplier));
         }
         else if (attack.attackType == AttackType.HeavyAerial)
         {
@@ -1311,6 +1375,12 @@ public class PlayerMovement : MonoBehaviour
         currentMovement.x *= 0.5f;
         currentMovement.z *= 0.5f;
         plungeLandingPending = false;
+
+        if (enablePlungeTargetAssist)
+        {
+            float assistDuration = Mathf.Max(plungeAssistMinDuration, plungeHoverTime + plungeAssistExtraDuration);
+            StartAerialTargetAssist(AttackType.HeavyAerial, assistDuration);
+        }
     }
 
     public void CancelPlungeState()
@@ -1319,6 +1389,215 @@ public class PlayerMovement : MonoBehaviour
         plungeLandingPending = false;
         plungeTimer = 0f;
         aerialAttackLockTimer = 0f;
+        StopAerialTargetAssist();
+    }
+
+    private void StartAerialTargetAssist(AttackType attackType, float duration)
+    {
+        if (!enableAerialTargetAssist || duration <= 0f)
+            return;
+
+        if (!TryResolveAerialAssistTarget(out Transform target))
+            return;
+
+        float horizontalSpeed = attackType == AttackType.HeavyAerial
+            ? plungeAssistHorizontalSpeed
+            : aerialLightAssistHorizontalSpeed;
+
+        horizontalSpeed = Mathf.Max(0f, horizontalSpeed);
+        if (horizontalSpeed <= 0f && aerialAssistVerticalSpeed <= 0f)
+            return;
+
+        if (aerialAssistRoutine != null)
+            StopCoroutine(aerialAssistRoutine);
+
+        aerialAssistTarget = target;
+        activeAerialAssistHorizontalSpeed = horizontalSpeed;
+        activeAerialAssistTargetYOffset = attackType == AttackType.HeavyAerial
+            ? plungeAssistTargetYOffset
+            : lightAerialAssistTargetYOffset;
+        nextAerialAssistRetargetTime = Time.time + Mathf.Max(0.01f, aerialAssistRetargetInterval);
+        aerialAssistRoutine = StartCoroutine(AerialTargetAssistRoutine(duration));
+    }
+
+    private IEnumerator AerialTargetAssistRoutine(float duration)
+    {
+        aerialAssistActive = true;
+        aerialAssistVelocity = Vector3.zero;
+
+        float timer = Mathf.Max(0.01f, duration);
+        while (timer > 0f)
+        {
+            if (IsGroundedNow() || isDashing)
+                break;
+
+            if (!IsAerialAssistTargetValid(aerialAssistTarget))
+            {
+                if (allowAerialAssistRetarget && Time.time >= nextAerialAssistRetargetTime)
+                {
+                    nextAerialAssistRetargetTime = Time.time + Mathf.Max(0.01f, aerialAssistRetargetInterval);
+                    if (TryResolveAerialAssistTarget(out Transform fallback))
+                        aerialAssistTarget = fallback;
+                    else
+                        break;
+                }
+                else if (!allowAerialAssistRetarget)
+                    break;
+            }
+
+            timer -= Time.deltaTime;
+            yield return null;
+        }
+
+        aerialAssistVelocity = Vector3.zero;
+        aerialAssistActive = false;
+        aerialAssistRoutine = null;
+    }
+
+    private void StopAerialTargetAssist()
+    {
+        if (aerialAssistRoutine != null)
+        {
+            try { StopCoroutine(aerialAssistRoutine); } catch { }
+            aerialAssistRoutine = null;
+        }
+
+        aerialAssistTarget = null;
+        activeAerialAssistHorizontalSpeed = 0f;
+        activeAerialAssistTargetYOffset = 0f;
+        nextAerialAssistRetargetTime = 0f;
+        aerialAssistVelocity = Vector3.zero;
+        aerialAssistActive = false;
+    }
+
+    private bool IsAerialAssistTargetValid(Transform target)
+    {
+        if (target == null)
+            return false;
+
+        BaseEnemyCore enemy = target.GetComponentInParent<BaseEnemyCore>();
+        if (enemy != null && !enemy.isAlive)
+            return false;
+
+        float range = Mathf.Max(0f, aerialTargetAssistRange);
+        if (range > 0f && (target.position - transform.position).sqrMagnitude > range * range)
+            return false;
+
+        return true;
+    }
+
+    private void UpdateAerialAssistVelocity(float deltaTime)
+    {
+        if (!aerialAssistActive || aerialAssistTarget == null)
+        {
+            aerialAssistVelocity = Vector3.MoveTowards(aerialAssistVelocity, Vector3.zero, Mathf.Max(1f, aerialAssistVelocityBlendRate) * deltaTime);
+            return;
+        }
+
+        Vector3 targetPoint = aerialAssistTarget.position + Vector3.up * activeAerialAssistTargetYOffset;
+        Vector3 toTarget = targetPoint - transform.position;
+        Vector3 planar = new Vector3(toTarget.x, 0f, toTarget.z);
+
+        Vector3 desiredVelocity = Vector3.zero;
+        float stopDistance = Mathf.Max(0f, aerialTargetAssistStopDistance);
+        float planarDistance = planar.magnitude;
+        if (planarDistance > stopDistance && activeAerialAssistHorizontalSpeed > 0f)
+        {
+            Vector3 planarDir = planar / Mathf.Max(0.0001f, planarDistance);
+            desiredVelocity += planarDir * activeAerialAssistHorizontalSpeed;
+
+            if (shouldFaceMoveDirection)
+            {
+                Quaternion toRotation = Quaternion.LookRotation(planarDir, Vector3.up);
+                transform.rotation = Quaternion.Slerp(transform.rotation, toRotation, deltaTime * 12f);
+            }
+        }
+
+        float verticalSpeed = Mathf.Max(0f, aerialAssistVerticalSpeed);
+        if (verticalSpeed > 0f)
+        {
+            float verticalVelocity = Mathf.Clamp(toTarget.y / Mathf.Max(deltaTime, 0.0001f), -verticalSpeed, verticalSpeed);
+            desiredVelocity += Vector3.up * verticalVelocity;
+        }
+
+        float blendRate = Mathf.Max(1f, aerialAssistVelocityBlendRate);
+        aerialAssistVelocity = Vector3.MoveTowards(aerialAssistVelocity, desiredVelocity, blendRate * deltaTime);
+    }
+
+    private bool TryResolveAerialAssistTarget(out Transform target)
+    {
+        target = null;
+
+        float range = Mathf.Max(0f, aerialTargetAssistRange);
+        if (range <= 0f)
+            return false;
+
+        attackLockSystem = attackLockSystem
+            ?? GetComponent<AttackLockSystem>()
+            ?? GetComponentInChildren<AttackLockSystem>()
+            ?? GetComponentInParent<AttackLockSystem>();
+
+        if (prioritizeHardLockForAerialAssist && attackLockSystem != null && attackLockSystem.IsHardLockActive)
+        {
+            Transform hardLockTarget = attackLockSystem.CurrentHardLockTarget;
+            if (hardLockTarget != null)
+            {
+                BaseEnemyCore hardLockEnemy = hardLockTarget.GetComponentInParent<BaseEnemyCore>();
+                if (hardLockEnemy != null && hardLockEnemy.isAlive)
+                {
+                    float hardLockDistance = (hardLockTarget.position - transform.position).magnitude;
+                    if (hardLockDistance <= range)
+                    {
+                        target = hardLockTarget;
+                        return true;
+                    }
+                }
+            }
+        }
+
+        Collider[] nearby = Physics.OverlapSphere(
+            transform.position,
+            range,
+            aerialTargetAssistMask,
+            QueryTriggerInteraction.Collide);
+
+        float bestSqrDistance = float.MaxValue;
+        float maxAngle = Mathf.Clamp(aerialTargetAssistAngle, 0f, 180f);
+        Vector3 forwardFlat = transform.forward;
+        forwardFlat.y = 0f;
+        if (forwardFlat.sqrMagnitude < 0.0001f)
+            forwardFlat = Vector3.forward;
+        else
+            forwardFlat.Normalize();
+
+        for (int i = 0; i < nearby.Length; i++)
+        {
+            Collider col = nearby[i];
+            if (col == null)
+                continue;
+
+            BaseEnemyCore enemy = col.GetComponentInParent<BaseEnemyCore>();
+            if (enemy == null || !enemy.isAlive)
+                continue;
+
+            Vector3 toEnemy = enemy.transform.position - transform.position;
+            Vector3 toEnemyFlat = new Vector3(toEnemy.x, 0f, toEnemy.z);
+            if (toEnemyFlat.sqrMagnitude <= 0.0001f)
+                continue;
+
+            float angle = Vector3.Angle(forwardFlat, toEnemyFlat.normalized);
+            if (angle > maxAngle)
+                continue;
+
+            float sqrDistance = toEnemy.sqrMagnitude;
+            if (sqrDistance < bestSqrDistance)
+            {
+                bestSqrDistance = sqrDistance;
+                target = enemy.transform;
+            }
+        }
+
+        return target != null;
     }
 
     private void ApplyMovement()
@@ -1364,10 +1643,13 @@ public class PlayerMovement : MonoBehaviour
         }
 
         // Add attack forward-move velocity (smooth lunge)
-        if (attackMoveActive)
+        if (attackMoveActive && !(aerialAssistActive && suppressAttackForwardMoveDuringAerialAssist))
         {
             horizontalMovement += new Vector3(attackMoveVelocity.x, 0, attackMoveVelocity.z);
         }
+
+        if (aerialAssistActive)
+            UpdateAerialAssistVelocity(Time.inFixedTimeStep ? Time.fixedDeltaTime : Time.deltaTime);
         
         // Handle knockback with wall collision
         if (isKnockbackActive)
@@ -1376,6 +1658,9 @@ public class PlayerMovement : MonoBehaviour
         }
         
         Vector3 finalVelocity = horizontalMovement + Vector3.up * currentMovement.y;
+
+        if (aerialAssistActive || aerialAssistVelocity.sqrMagnitude > 0.0001f)
+            finalVelocity += aerialAssistVelocity;
 
         // Apply movement using the simulation timestep (FixedUpdate-safe) to avoid dash jitter.
         float movementDeltaTime = Time.inFixedTimeStep ? Time.fixedDeltaTime : Time.deltaTime;
@@ -1391,6 +1676,7 @@ public class PlayerMovement : MonoBehaviour
             isPlunging = false;
             plungeTimer = 0f;
             aerialAttackLockTimer = 0f;
+            StopAerialTargetAssist();
         }
     }
 
