@@ -31557,7 +31557,7 @@ MonoBehaviour:
   postEntryMessage:
     type: 0
     message: Open the log menu to view the log you just picked up
-  singleTargetFight: {fileID: 0}
+  singleTargetFight: {fileID: 871761656}
   aoeTargetFight: {fileID: 0}
 --- !u!4 &891709589
 Transform:

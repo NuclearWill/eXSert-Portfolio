@@ -28,6 +28,7 @@ public class NavigationEntryInteraction : CollectableInteraction
     [SerializeField] private bool isLog;
 
     public event Action<string> OnEntryCollected;
+    public event Action OnEntryRead;
 
     protected override void OnEnable()
     {
@@ -71,6 +72,8 @@ public class NavigationEntryInteraction : CollectableInteraction
         {
             if (EventsManager.Instance != null && EventsManager.Instance.logEvents != null)
                 EventsManager.Instance.logEvents.onLogStateChange += OnLogStateChange;
+
+            ((NavigationLogSO) entryData).LogRead += OnEntryRead;
         }
     }
 
@@ -86,6 +89,8 @@ public class NavigationEntryInteraction : CollectableInteraction
         {
             if (EventsManager.Instance != null && EventsManager.Instance.logEvents != null)
                 EventsManager.Instance.logEvents.onLogStateChange -= OnLogStateChange;
+
+            ((NavigationLogSO)entryData).LogRead -= OnEntryRead;
         }
     }
 
