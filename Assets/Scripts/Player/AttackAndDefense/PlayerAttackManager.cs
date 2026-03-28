@@ -14,6 +14,7 @@ public class PlayerAttackManager : MonoBehaviour
     [SerializeField] private AttackDatabase attackDatabase;
     [SerializeField] private CharacterController characterController;
     [SerializeField] private PlayerMovement playerMovement;
+    [SerializeField] private AttackLockSystem attackLockSystem;
     [SerializeField, Tooltip("Registry of VFX anchor points on the player rig.")]
     private PlayerVfxAnchorRegistry vfxAnchorRegistry;
 
@@ -57,9 +58,57 @@ public class PlayerAttackManager : MonoBehaviour
     [SerializeField, Range(0f, 30f), Tooltip("Horizontal push applied away from impact center when drone collapse starts.")]
     private float plungeDroneCollapseRadialForce = 6f;
 
+    [Header("Aerial Drone Reposition Assist")]
+    [SerializeField, Tooltip("When enabled, light aerial hits on alive drones nudge them away for cleaner follow-up aerial assist.")]
+    private bool enableLightAerialDroneReposition = true;
+    [SerializeField, Range(0f, 8f), Tooltip("Horizontal displacement applied to drones hit by light aerial attacks.")]
+    private float lightAerialDroneRepositionDistance = 1.8f;
+    [SerializeField, Range(-1f, 3f), Tooltip("Vertical offset applied when nudging drones on light aerial hit.")]
+    private float lightAerialDroneRepositionVerticalOffset = 0.35f;
+    [SerializeField, Range(0f, 2f), Tooltip("Only apply light-aerial drone reposition when player is this much below the drone.")]
+    private float lightAerialDroneRepositionMinPlayerBelow = 0.1f;
+    [SerializeField, Range(0f, 1f), Tooltip("Blend between away-from-player direction (0) and attacker-forward direction (1).")]
+    private float lightAerialDroneRepositionForwardBias = 0.45f;
+
+    [Header("Enemy Hit Stagger")]
+    [SerializeField, Tooltip("Master toggle: all player attacks stagger enemies on confirmed hit.")]
+    private bool staggerEnemiesOnAllAttacks;
+    [SerializeField, Tooltip("If master is off, single-target attacks can still stagger.")]
+    private bool staggerOnSingleTargetAttacks = true;
+    [SerializeField, Tooltip("If master is off, AoE attacks can still stagger.")]
+    private bool staggerOnAoeAttacks;
+    [SerializeField, Tooltip("If master is off, aerial attacks can still stagger.")]
+    private bool staggerOnAerialAttacks = true;
+    [SerializeField, Tooltip("Single-target combo part toggle: SX1")]
+    private bool staggerOnSx1 = true;
+    [SerializeField, Tooltip("Single-target combo part toggle: SX2")]
+    private bool staggerOnSx2 = true;
+    [SerializeField, Tooltip("Single-target combo part toggle: SX3")]
+    private bool staggerOnSx3 = true;
+    [SerializeField, Tooltip("Single-target combo part toggle: SX4")]
+    private bool staggerOnSx4 = true;
+    [SerializeField, Tooltip("Single-target combo part toggle: SX5")]
+    private bool staggerOnSx5 = true;
+    [SerializeField, Tooltip("Heavy combo part toggle: AY1")]
+    private bool staggerOnAy1 = true;
+    [SerializeField, Tooltip("Heavy combo part toggle: AY2")]
+    private bool staggerOnAy2 = true;
+    [SerializeField, Tooltip("Heavy combo part toggle: AY3")]
+    private bool staggerOnAy3 = true;
+    [SerializeField, Tooltip("Aerial combo part toggle: AC_X1 / ACX1")]
+    private bool staggerOnAcX1 = true;
+    [SerializeField, Tooltip("Aerial combo part toggle: AC_X2 / ACX2")]
+    private bool staggerOnAcX2 = true;
+    [SerializeField, Tooltip("Aerial combo part toggle: Plunge / Heavy Aerial finisher")]
+    private bool staggerOnPlunge = true;
+    [SerializeField, Range(0.05f, 2f), Tooltip("Enemy stagger duration from player hitboxes.")]
+    private float enemyStaggerDuration = 0.35f;
+
     [Header("Attack Forward Move Blocking")]
     [SerializeField, Tooltip("If enabled, attack forward movement is skipped when an alive enemy is too close in front of the player.")]
     private bool blockAttackForwardMoveWhenEnemyNear = true;
+    [SerializeField, Tooltip("If enabled, attack forward movement is skipped while soft-lock positional nudge motion is still active to prevent bounce-back.")]
+    private bool blockAttackForwardMoveDuringSoftLockMotion = true;
     [SerializeField, Range(0f, 5f), Tooltip("Distance threshold to block attack forward movement when an enemy is in front.")]
     private float attackForwardMoveBlockDistance = 1.25f;
     [SerializeField, Range(0f, 180f), Tooltip("Front cone angle used for attack forward-move blocking.")]
@@ -139,6 +188,7 @@ public class PlayerAttackManager : MonoBehaviour
         aerialComboManager ??= GetComponent<AerialComboManager>() ?? GetComponentInChildren<AerialComboManager>() ?? GetComponentInParent<AerialComboManager>();
         characterController ??= GetComponent<CharacterController>();
         playerMovement ??= GetComponent<PlayerMovement>() ?? GetComponentInChildren<PlayerMovement>() ?? GetComponentInParent<PlayerMovement>();
+        attackLockSystem ??= GetComponent<AttackLockSystem>() ?? GetComponentInChildren<AttackLockSystem>() ?? GetComponentInParent<AttackLockSystem>();
         vfxAnchorRegistry ??= GetComponent<PlayerVfxAnchorRegistry>() ?? GetComponentInChildren<PlayerVfxAnchorRegistry>() ?? GetComponentInParent<PlayerVfxAnchorRegistry>();
 
         if (attackDatabase == null)
@@ -552,6 +602,9 @@ public class PlayerAttackManager : MonoBehaviour
 
     private bool ShouldBlockAttackForwardMove()
     {
+        if (blockAttackForwardMoveDuringSoftLockMotion && attackLockSystem != null && attackLockSystem.IsSoftLockMotionInProgress)
+            return true;
+
         if (!blockAttackForwardMoveWhenEnemyNear)
             return false;
 
@@ -722,6 +775,32 @@ public class PlayerAttackManager : MonoBehaviour
                 isLightAerial,
                 transform.position,
                 transform.forward);
+            damageManager.ConfigureAerialDroneRepositionSettings(
+                enableLightAerialDroneReposition,
+                lightAerialDroneRepositionDistance,
+                lightAerialDroneRepositionVerticalOffset,
+                lightAerialDroneRepositionMinPlayerBelow,
+                lightAerialDroneRepositionForwardBias);
+            damageManager.ConfigureAttackType(currentAttack.attackType);
+            damageManager.ConfigureAttackId(currentAttack.attackId);
+            damageManager.ConfigureAttackerContext(transform.position);
+            damageManager.ConfigureEnemyHitStaggerSettings(
+                staggerEnemiesOnAllAttacks,
+                staggerOnSingleTargetAttacks,
+                staggerOnAoeAttacks,
+                staggerOnAerialAttacks,
+                staggerOnSx1,
+                staggerOnSx2,
+                staggerOnSx3,
+                staggerOnSx4,
+                staggerOnSx5,
+                staggerOnAy1,
+                staggerOnAy2,
+                staggerOnAy3,
+                staggerOnAcX1,
+                staggerOnAcX2,
+                staggerOnPlunge,
+                enemyStaggerDuration);
         }
 
         PlayAttackVfx(attack, spawnPosition, spawnRotation);

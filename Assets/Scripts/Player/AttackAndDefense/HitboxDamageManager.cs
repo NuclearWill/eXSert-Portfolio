@@ -1,5 +1,5 @@
 /*
-Written by Brandon Wahl
+Written by Brandon Wahl.
 
 This script is used to determine how much damage should be dealt when collided with using the attack interface. It also counts the weapon name for debugging purposes.
 
@@ -14,6 +14,8 @@ using Utilities.Combat.Attacks;
 [RequireComponent(typeof(BoxCollider))]
 public class HitboxDamageManager : MonoBehaviour, IAttackSystem
 {
+    public static event System.Action<AttackType, bool> AttackHitConfirmed;
+
     [SerializeField] private string weaponName = "";
     [SerializeField] private float damageAmount;
     [SerializeField, Tooltip("Maximum unique enemies this hitbox may damage per activation. 0 = unlimited.")]
@@ -47,11 +49,49 @@ public class HitboxDamageManager : MonoBehaviour, IAttackSystem
     [SerializeField, Range(0f, 1f), Tooltip("Blend between away-from-player direction (0) and attacker-forward direction (1).")]
     private float lightAerialDroneRepositionForwardBias = 0.45f;
 
+    [Header("Enemy Hit Stagger")]
+    [SerializeField, Tooltip("Master toggle: when enabled, all player attacks apply enemy stagger on hit.")]
+    private bool staggerEnemiesOnAllAttacks;
+    [SerializeField, Tooltip("If master toggle is off, single-target attacks can still stagger enemies when this is enabled.")]
+    private bool staggerOnSingleTargetAttacks = true;
+    [SerializeField, Tooltip("If master toggle is off, AoE attacks can still stagger enemies when this is enabled.")]
+    private bool staggerOnAoeAttacks;
+    [SerializeField, Tooltip("If master toggle is off, aerial attacks can still stagger enemies when this is enabled.")]
+    private bool staggerOnAerialAttacks = true;
+    [SerializeField, Tooltip("Single-target combo part toggle: SX1")]
+    private bool staggerOnSx1 = true;
+    [SerializeField, Tooltip("Single-target combo part toggle: SX2")]
+    private bool staggerOnSx2 = true;
+    [SerializeField, Tooltip("Single-target combo part toggle: SX3")]
+    private bool staggerOnSx3 = true;
+    [SerializeField, Tooltip("Single-target combo part toggle: SX4")]
+    private bool staggerOnSx4 = true;
+    [SerializeField, Tooltip("Single-target combo part toggle: SX5")]
+    private bool staggerOnSx5 = true;
+    [SerializeField, Tooltip("Heavy combo part toggle: AY1")]
+    private bool staggerOnAy1 = true;
+    [SerializeField, Tooltip("Heavy combo part toggle: AY2")]
+    private bool staggerOnAy2 = true;
+    [SerializeField, Tooltip("Heavy combo part toggle: AY3")]
+    private bool staggerOnAy3 = true;
+    [SerializeField, Tooltip("Aerial combo part toggle: AC_X1 / ACX1")]
+    private bool staggerOnAcX1 = true;
+    [SerializeField, Tooltip("Aerial combo part toggle: AC_X2 / ACX2")]
+    private bool staggerOnAcX2 = true;
+    [SerializeField, Tooltip("Aerial combo part toggle: Plunge / Heavy Aerial finisher")]
+    private bool staggerOnPlunge = true;
+    [SerializeField, Range(0.05f, 2f), Tooltip("Duration of enemy stagger applied from player hits.")]
+    private float enemyStaggerDuration = 0.35f;
+
     private BoxCollider boxCollider;
     private HashSet<int> hitThisActivation = new HashSet<int>(); // Track which enemies were hit during this activation
     private bool currentHitboxIsLightAerial;
     private Vector3 cachedAttackerPosition;
     private Vector3 cachedAttackerForward = Vector3.forward;
+    private AttackType currentAttackType;
+    private string currentAttackId;
+    private bool hasAttackerContext;
+    private int lockedSingleTargetId;
     float IAttackSystem.damageAmount => damageAmount;
     string IAttackSystem.weaponName => weaponName;
     public void Configure(string weapon, float damage, int maxTargets)
@@ -87,6 +127,76 @@ public class HitboxDamageManager : MonoBehaviour, IAttackSystem
         cachedAttackerForward = attackerForward;
     }
 
+    public void ConfigureAerialDroneRepositionSettings(
+        bool enableReposition,
+        float repositionDistance,
+        float repositionVerticalOffset,
+        float repositionMinPlayerBelow,
+        float repositionForwardBias)
+    {
+        enableLightAerialDroneReposition = enableReposition;
+        lightAerialDroneRepositionDistance = Mathf.Max(0f, repositionDistance);
+        lightAerialDroneRepositionVerticalOffset = repositionVerticalOffset;
+        lightAerialDroneRepositionMinPlayerBelow = Mathf.Max(0f, repositionMinPlayerBelow);
+        lightAerialDroneRepositionForwardBias = Mathf.Clamp01(repositionForwardBias);
+    }
+
+    public void ConfigureAttackType(AttackType attackType)
+    {
+        currentAttackType = attackType;
+    }
+
+    public void ConfigureAttackId(string attackId)
+    {
+        currentAttackId = attackId;
+    }
+
+    public void ConfigureEnemyHitStaggerSettings(
+        bool staggerAllAttacks,
+        bool staggerSingleTargetAttacks,
+        bool staggerAoeAttacks,
+        bool staggerAerialAttacks,
+        bool staggerSX1,
+        bool staggerSX2,
+        bool staggerSX3,
+        bool staggerSX4,
+        bool staggerSX5,
+        bool staggerAY1,
+        bool staggerAY2,
+        bool staggerAY3,
+        bool staggerACX1,
+        bool staggerACX2,
+        bool staggerPlunge,
+        float staggerDuration)
+    {
+        staggerEnemiesOnAllAttacks = staggerAllAttacks;
+        staggerOnSingleTargetAttacks = staggerSingleTargetAttacks;
+        staggerOnAoeAttacks = staggerAoeAttacks;
+        staggerOnAerialAttacks = staggerAerialAttacks;
+
+        staggerOnSx1 = staggerSX1;
+        staggerOnSx2 = staggerSX2;
+        staggerOnSx3 = staggerSX3;
+        staggerOnSx4 = staggerSX4;
+        staggerOnSx5 = staggerSX5;
+
+        staggerOnAy1 = staggerAY1;
+        staggerOnAy2 = staggerAY2;
+        staggerOnAy3 = staggerAY3;
+
+        staggerOnAcX1 = staggerACX1;
+        staggerOnAcX2 = staggerACX2;
+        staggerOnPlunge = staggerPlunge;
+
+        enemyStaggerDuration = Mathf.Max(0.05f, staggerDuration);
+    }
+
+    public void ConfigureAttackerContext(Vector3 attackerPosition)
+    {
+        cachedAttackerPosition = attackerPosition;
+        hasAttackerContext = true;
+    }
+
 
     void Awake()
     {
@@ -109,6 +219,7 @@ public class HitboxDamageManager : MonoBehaviour, IAttackSystem
         
         // Clear hit tracking for fresh attack activation
         hitThisActivation.Clear();
+        lockedSingleTargetId = 0;
         Debug.Log($"{weaponName} HashSet cleared - now has {hitThisActivation.Count} entries");
         
         // Check for enemies already overlapping when hitbox activates
@@ -199,6 +310,19 @@ public class HitboxDamageManager : MonoBehaviour, IAttackSystem
         // One hit per activation: Check if this enemy was already hit during current activation
         int enemyId = healthComp.GetInstanceID();
         // Debug.Log($"{weaponName} checking enemy ID {enemyId} ({healthComp.name}) - HashSet currently has {hitThisActivation.Count} entries");
+
+        if (IsSingleTargetAttackType(currentAttackType))
+        {
+            if (lockedSingleTargetId == 0)
+            {
+                lockedSingleTargetId = ResolveClosestSingleTargetId();
+                if (lockedSingleTargetId == 0)
+                    lockedSingleTargetId = enemyId;
+            }
+
+            if (enemyId != lockedSingleTargetId)
+                return;
+        }
         
         if (hitThisActivation.Contains(enemyId))
         {
@@ -214,6 +338,18 @@ public class HitboxDamageManager : MonoBehaviour, IAttackSystem
         float beforeHP = health.currentHP;
         health.LoseHP(damageAmount);
         float afterHP = health.currentHP;
+
+        if (afterHP < beforeHP)
+        {
+            bool hitWasDrone = healthComp.GetComponentInParent<DroneEnemy>() != null;
+            AttackHitConfirmed?.Invoke(currentAttackType, hitWasDrone);
+
+            if (ShouldApplyEnemyStagger(currentAttackType) && afterHP > 0f)
+            {
+                BaseEnemyCore enemyCore = healthComp.GetComponentInParent<BaseEnemyCore>();
+                enemyCore?.ApplyHitStagger(enemyStaggerDuration);
+            }
+        }
 
         if (currentHitboxIsLightAerial && afterHP > 0f)
         {
@@ -340,6 +476,114 @@ public class HitboxDamageManager : MonoBehaviour, IAttackSystem
     {
         if (component == null) return false;
         return component.CompareTag("Enemy") || (!string.IsNullOrWhiteSpace(bossTag) && component.CompareTag(bossTag));
+    }
+
+    private bool IsSingleTargetAttackType(AttackType attackType)
+    {
+        return attackType == AttackType.LightSingle || attackType == AttackType.HeavySingle;
+    }
+
+    private bool ShouldApplyEnemyStagger(AttackType attackType)
+    {
+        if (staggerEnemiesOnAllAttacks)
+            return true;
+
+        if (attackType == AttackType.LightSingle || attackType == AttackType.HeavySingle)
+            return staggerOnSingleTargetAttacks && IsComboPartStaggerEnabled(currentAttackId);
+
+        if (attackType == AttackType.LightAOE || attackType == AttackType.HeavyAOE)
+            return staggerOnAoeAttacks;
+
+        if (attackType == AttackType.LightAerial || attackType == AttackType.HeavyAerial)
+            return staggerOnAerialAttacks && IsComboPartStaggerEnabled(currentAttackId);
+
+        return false;
+    }
+
+    private bool IsComboPartStaggerEnabled(string attackId)
+    {
+        string key = NormalizeAttackId(attackId);
+        if (string.IsNullOrEmpty(key))
+            return true;
+
+        return key switch
+        {
+            "SX1" => staggerOnSx1,
+            "SX2" => staggerOnSx2,
+            "SX3" => staggerOnSx3,
+            "SX4" => staggerOnSx4,
+            "SX5" => staggerOnSx5,
+            "AY1" => staggerOnAy1,
+            "AY2" => staggerOnAy2,
+            "AY3" => staggerOnAy3,
+            "ACX1" => staggerOnAcX1,
+            "ACX2" => staggerOnAcX2,
+            "PLUNGE" => staggerOnPlunge,
+            "AERIALY1" => staggerOnPlunge,
+            "HEAVYAERIAL" => staggerOnPlunge,
+            _ => true,
+        };
+    }
+
+    private static string NormalizeAttackId(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return string.Empty;
+
+        char[] buffer = new char[value.Length];
+        int count = 0;
+        for (int i = 0; i < value.Length; i++)
+        {
+            char c = value[i];
+            if (char.IsLetterOrDigit(c))
+                buffer[count++] = char.ToUpperInvariant(c);
+        }
+
+        return count > 0 ? new string(buffer, 0, count) : string.Empty;
+    }
+
+    private int ResolveClosestSingleTargetId()
+    {
+        Vector3 origin = hasAttackerContext ? cachedAttackerPosition : transform.root.position;
+        Collider[] overlapping = Physics.OverlapBox(
+            boxCollider.bounds.center,
+            boxCollider.bounds.extents,
+            transform.rotation,
+            Physics.AllLayers,
+            QueryTriggerInteraction.Ignore);
+
+        int closestId = 0;
+        float closestSqr = float.MaxValue;
+
+        foreach (Collider candidate in overlapping)
+        {
+            if (candidate == null || candidate == boxCollider)
+                continue;
+
+            if (!IsDamageableTag(candidate))
+                continue;
+
+            if (candidate.CompareTag("Player") || candidate.transform.root.CompareTag("Player"))
+                continue;
+
+            IHealthSystem health = candidate.GetComponentInParent<IHealthSystem>();
+            Component healthComp = health as Component;
+            if (healthComp == null || healthComp.CompareTag("Player"))
+                continue;
+
+            BaseEnemyCore enemyCore = healthComp.GetComponentInParent<BaseEnemyCore>();
+            if (enemyCore != null && !enemyCore.isAlive)
+                continue;
+
+            float sqr = (healthComp.transform.position - origin).sqrMagnitude;
+            if (sqr < closestSqr)
+            {
+                closestSqr = sqr;
+                closestId = healthComp.GetInstanceID();
+            }
+        }
+
+        return closestId;
     }
     
 

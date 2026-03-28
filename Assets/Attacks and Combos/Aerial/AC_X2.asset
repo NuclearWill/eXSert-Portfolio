@@ -24,8 +24,8 @@ MonoBehaviour:
   _knockbackAngle: 0
   _customRange: 0
   _range: 1.5
-  _customWidth: 0
-  _width: 1
+  _customWidth: 1
+  _width: 2
   _defaultDistanceFromPlayer: 1
   _customAttackDistanceFromPlayer: 0.75
   _hitboxHeightOffset: 1

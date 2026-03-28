@@ -103,10 +103,26 @@ public class PlayerMovement : MonoBehaviour
     [Header("Attack Movement")]
     [SerializeField, Tooltip("When enabled, movement input can continue while attacks are active.")]
     private bool allowMovementWhileAttacking = true;
+    [SerializeField, Tooltip("When enabled, landing configured attack types will disable attack-movement for the rest of that active attack window.")]
+    private bool disableAttackMovementAfterLandedHit = true;
+    [SerializeField, Tooltip("If enabled, single-target grounded attacks (LightSingle/HeavySingle) disable attack-movement after a confirmed hit.")]
+    private bool disableAttackMovementAfterSingleTargetHit = true;
+    [SerializeField, Tooltip("If enabled, aerial attacks (LightAerial/HeavyAerial) disable attack-movement after a confirmed hit.")]
+    private bool disableAttackMovementAfterAerialHit = false;
+    [SerializeField, Tooltip("If enabled, AoE attacks remain movable even after hit-confirm events.")]
+    private bool keepAttackMovementForAoeAttacks = true;
     [SerializeField, Range(0.1f, 1.5f), Tooltip("Movement speed multiplier applied while attacking when attack movement is enabled.")]
     private float attackMovementSpeedMultiplier = 1f;
     [SerializeField, Range(0f, 180f), Tooltip("Maximum left/right turn angle allowed while attacking, measured from facing direction at attack start. 180 = no limit.")]
     private float maxAttackTurnAngleWhileAttacking = 50f;
+    [SerializeField, Tooltip("When enabled, landing an attack temporarily reduces how much the player can turn while attacking.")]
+    private bool reduceAttackTurningAfterLandingHit = true;
+    [SerializeField, Range(0f, 180f), Tooltip("Max turn angle allowed while the post-hit turn-reduction window is active.")]
+    private float postHitMaxAttackTurnAngle = 10f;
+    [SerializeField, Range(0f, 1f), Tooltip("How long post-hit turn reduction remains active.")]
+    private float postHitTurnReductionDuration = 0.22f;
+    [SerializeField, Tooltip("When enabled, the attack-facing lock anchor freezes during post-hit turn reduction for a tighter feel.")]
+    private bool freezeAttackFacingAnchorAfterHit = true;
 
     [Header("Landing Settings")]
     [SerializeField, Range(0f, 1f)]
@@ -177,6 +193,12 @@ public class PlayerMovement : MonoBehaviour
     private LayerMask aerialTargetAssistMask = ~0;
     [SerializeField, Tooltip("When true, hard-lock targets are preferred over nearby targets.")]
     private bool prioritizeHardLockForAerialAssist = true;
+    [SerializeField, Tooltip("When enabled, aerial assist prefers drones over other enemy types.")]
+    private bool prioritizeDronesForAerialAssist = true;
+    [SerializeField, Tooltip("When enabled (and no drone is selected), aerial assist prefers higher Y-level targets.")]
+    private bool prioritizeHigherAerialTargets = true;
+    [SerializeField, Tooltip("When enabled, aerial assist prefers targets nearest to the camera center and ignores off-screen targets.")]
+    private bool prioritizeCenterOfViewForAerialAssist = true;
     [SerializeField, Tooltip("When true, assist can re-acquire nearby targets while active if the current target is lost.")]
     private bool allowAerialAssistRetarget = true;
     [SerializeField, Range(0.01f, 0.5f), Tooltip("How often assist can attempt to re-acquire a target while active.")]
@@ -377,6 +399,9 @@ public class PlayerMovement : MonoBehaviour
     private float activeAerialAssistHorizontalSpeed;
     private float activeAerialAssistTargetYOffset;
     private float nextAerialAssistRetargetTime;
+    private float attackTurnReductionTimer;
+    private bool attackFacingAnchorFrozenByHit;
+    private bool attackMovementSuppressedByHit;
 
     private Transform ResolveCameraTransform()
     {
@@ -537,6 +562,7 @@ public class PlayerMovement : MonoBehaviour
     private void OnEnable()
     {
         PlayerAttackManager.OnAttack += AerialAttackHop;
+        HitboxDamageManager.AttackHitConfirmed += HandleAttackHitConfirmed;
         if (dashChargesRemaining <= 0)
             ResetDashCharges();
     }
@@ -544,6 +570,7 @@ public class PlayerMovement : MonoBehaviour
     private void OnDisable()
     {
         PlayerAttackManager.OnAttack -= AerialAttackHop;
+        HitboxDamageManager.AttackHitConfirmed -= HandleAttackHitConfirmed;
 
         StopPendingJumpTimeout();
 
@@ -553,6 +580,9 @@ public class PlayerMovement : MonoBehaviour
             plungeJumpLockRoutine = null;
         }
         plungeJumpLocked = false;
+        attackTurnReductionTimer = 0f;
+        attackFacingAnchorFrozenByHit = false;
+        attackMovementSuppressedByHit = false;
 
         StopAerialTargetAssist();
 
@@ -598,6 +628,7 @@ public class PlayerMovement : MonoBehaviour
     {
         // Mirror OnDisable cleanup in case object is destroyed without disabling first
         PlayerAttackManager.OnAttack -= AerialAttackHop;
+        HitboxDamageManager.AttackHitConfirmed -= HandleAttackHitConfirmed;
 
         StopPendingJumpTimeout();
 
@@ -607,6 +638,9 @@ public class PlayerMovement : MonoBehaviour
             plungeJumpLockRoutine = null;
         }
         plungeJumpLocked = false;
+        attackTurnReductionTimer = 0f;
+        attackFacingAnchorFrozenByHit = false;
+        attackMovementSuppressedByHit = false;
 
         StopAerialTargetAssist();
 
@@ -646,6 +680,13 @@ public class PlayerMovement : MonoBehaviour
     private void Update()
     {
         DebugStateTransitions();
+
+        if (attackTurnReductionTimer > 0f)
+        {
+            attackTurnReductionTimer = Mathf.Max(0f, attackTurnReductionTimer - Time.deltaTime);
+            if (attackTurnReductionTimer <= 0f)
+                attackFacingAnchorFrozenByHit = false;
+        }
 
         EnsureDashStateConsistency();
 
@@ -708,12 +749,16 @@ public class PlayerMovement : MonoBehaviour
 
         if (attackMovementActive)
         {
-            attackFacingLockForward = transform.forward;
-            attackFacingLockForward.y = 0f;
-            if (attackFacingLockForward.sqrMagnitude < 0.0001f)
-                attackFacingLockForward = Vector3.forward;
-            else
-                attackFacingLockForward.Normalize();
+            bool freezeAnchor = attackFacingAnchorFrozenByHit && freezeAttackFacingAnchorAfterHit;
+            if (!freezeAnchor)
+            {
+                attackFacingLockForward = transform.forward;
+                attackFacingLockForward.y = 0f;
+                if (attackFacingLockForward.sqrMagnitude < 0.0001f)
+                    attackFacingLockForward = Vector3.forward;
+                else
+                    attackFacingLockForward.Normalize();
+            }
 
             attackFacingLockInitialized = true;
         }
@@ -786,9 +831,13 @@ public class PlayerMovement : MonoBehaviour
 
             if (shouldFaceMoveDirection && moveDirection.sqrMagnitude > 0.001f)
             {
-                Vector3 facingDirection = attackMovementActive
-                    ? GetAttackConstrainedFacingDirection(moveDirection)
-                    : moveDirection;
+                Vector3 facingDirection;
+                if (attackMovementActive && TryGetAttackPriorityFacingDirection(moveDirection, out Vector3 prioritizedFacing))
+                    facingDirection = prioritizedFacing;
+                else
+                    facingDirection = attackMovementActive
+                        ? GetAttackConstrainedFacingDirection(moveDirection)
+                        : moveDirection;
 
                 Quaternion toRotation = Quaternion.LookRotation(facingDirection, Vector3.up);
                 transform.rotation = Quaternion.Slerp(transform.rotation, toRotation, Time.deltaTime * 10f);
@@ -1546,7 +1595,11 @@ public class PlayerMovement : MonoBehaviour
                 if (hardLockEnemy != null && hardLockEnemy.isAlive)
                 {
                     float hardLockDistance = (hardLockTarget.position - transform.position).magnitude;
-                    if (hardLockDistance <= range)
+                    bool hardLockIsDrone = IsDroneTarget(hardLockTarget);
+                    bool canUseHardLockTarget = hardLockDistance <= range
+                        && (!prioritizeDronesForAerialAssist || hardLockIsDrone);
+
+                    if (canUseHardLockTarget)
                     {
                         target = hardLockTarget;
                         return true;
@@ -1561,7 +1614,13 @@ public class PlayerMovement : MonoBehaviour
             aerialTargetAssistMask,
             QueryTriggerInteraction.Collide);
 
+        Camera screenCamera = Camera.main;
+        bool useViewportPriority = prioritizeCenterOfViewForAerialAssist && screenCamera != null;
+
         float bestSqrDistance = float.MaxValue;
+        float bestHeightDelta = float.NegativeInfinity;
+        bool bestIsDrone = false;
+        float bestViewportScore = float.MaxValue;
         float maxAngle = Mathf.Clamp(aerialTargetAssistAngle, 0f, 180f);
         Vector3 forwardFlat = transform.forward;
         forwardFlat.y = 0f;
@@ -1590,14 +1649,80 @@ public class PlayerMovement : MonoBehaviour
                 continue;
 
             float sqrDistance = toEnemy.sqrMagnitude;
-            if (sqrDistance < bestSqrDistance)
+            bool isDrone = IsDroneTarget(enemy.transform);
+            float viewportScore = float.MaxValue;
+            if (useViewportPriority)
+            {
+                Vector3 viewport = screenCamera.WorldToViewportPoint(enemy.transform.position);
+                if (viewport.z <= 0f)
+                    continue;
+
+                if (viewport.x < 0f || viewport.x > 1f || viewport.y < 0f || viewport.y > 1f)
+                    continue;
+
+                Vector2 offset = new Vector2(viewport.x - 0.5f, viewport.y - 0.5f);
+                viewportScore = offset.sqrMagnitude;
+            }
+
+            bool takeCandidate = false;
+
+            if (target == null)
+            {
+                takeCandidate = true;
+            }
+            else if (prioritizeDronesForAerialAssist && isDrone != bestIsDrone)
+            {
+                takeCandidate = isDrone;
+            }
+            else if (useViewportPriority)
+            {
+                if (viewportScore < bestViewportScore)
+                    takeCandidate = true;
+                else if (Mathf.Approximately(viewportScore, bestViewportScore) && prioritizeHigherAerialTargets)
+                {
+                    float heightDelta = enemy.transform.position.y - transform.position.y;
+                    if (heightDelta > bestHeightDelta + 0.02f)
+                        takeCandidate = true;
+                    else if (Mathf.Abs(heightDelta - bestHeightDelta) <= 0.02f && sqrDistance < bestSqrDistance)
+                        takeCandidate = true;
+                }
+                else if (Mathf.Approximately(viewportScore, bestViewportScore) && sqrDistance < bestSqrDistance)
+                {
+                    takeCandidate = true;
+                }
+            }
+            else if (prioritizeHigherAerialTargets)
+            {
+                float heightDelta = enemy.transform.position.y - transform.position.y;
+                if (heightDelta > bestHeightDelta + 0.02f)
+                    takeCandidate = true;
+                else if (Mathf.Abs(heightDelta - bestHeightDelta) <= 0.02f && sqrDistance < bestSqrDistance)
+                    takeCandidate = true;
+            }
+            else if (sqrDistance < bestSqrDistance)
+            {
+                takeCandidate = true;
+            }
+
+            if (takeCandidate)
             {
                 bestSqrDistance = sqrDistance;
+                bestHeightDelta = enemy.transform.position.y - transform.position.y;
+                bestIsDrone = isDrone;
+                bestViewportScore = viewportScore;
                 target = enemy.transform;
             }
         }
 
         return target != null;
+    }
+
+    private static bool IsDroneTarget(Transform target)
+    {
+        if (target == null)
+            return false;
+
+        return target.GetComponentInParent<DroneEnemy>() != null;
     }
 
     private void ApplyMovement()
@@ -1881,7 +2006,16 @@ public class PlayerMovement : MonoBehaviour
         if (!allowMovementWhileAttacking || !InputReader.inputBusy)
             return false;
 
-        return attackManager != null && attackManager.IsAttackInProgress;
+        if (attackManager == null || !attackManager.IsAttackInProgress)
+        {
+            attackMovementSuppressedByHit = false;
+            return false;
+        }
+
+        if (attackMovementSuppressedByHit)
+            return false;
+
+        return true;
     }
 
     private Vector3 GetAttackConstrainedFacingDirection(Vector3 desiredDirection)
@@ -1892,14 +2026,91 @@ public class PlayerMovement : MonoBehaviour
 
         desiredDirection.Normalize();
 
-        if (!attackFacingLockInitialized || maxAttackTurnAngleWhileAttacking >= 179.9f)
+        float allowedTurnAngle = maxAttackTurnAngleWhileAttacking;
+        if (reduceAttackTurningAfterLandingHit && attackTurnReductionTimer > 0f)
+            allowedTurnAngle = Mathf.Min(allowedTurnAngle, Mathf.Max(0f, postHitMaxAttackTurnAngle));
+
+        if (!attackFacingLockInitialized || allowedTurnAngle >= 179.9f)
             return desiredDirection;
 
         float signedAngle = Vector3.SignedAngle(attackFacingLockForward, desiredDirection, Vector3.up);
-        float clampedAngle = Mathf.Clamp(signedAngle, -maxAttackTurnAngleWhileAttacking, maxAttackTurnAngleWhileAttacking);
+        float clampedAngle = Mathf.Clamp(signedAngle, -allowedTurnAngle, allowedTurnAngle);
 
         Vector3 constrained = Quaternion.AngleAxis(clampedAngle, Vector3.up) * attackFacingLockForward;
         return constrained.normalized;
+    }
+
+    private bool TryGetAttackPriorityFacingDirection(Vector3 fallbackMoveDirection, out Vector3 facingDirection)
+    {
+        facingDirection = Vector3.zero;
+
+        attackLockSystem = attackLockSystem
+            ?? GetComponent<AttackLockSystem>()
+            ?? GetComponentInChildren<AttackLockSystem>()
+            ?? GetComponentInParent<AttackLockSystem>();
+
+        if (attackLockSystem != null && attackLockSystem.TryGetSoftLockAttackFacingDirection(out Vector3 lockDirection))
+        {
+            facingDirection = GetAttackConstrainedFacingDirection(lockDirection);
+            return true;
+        }
+
+        if (fallbackMoveDirection.sqrMagnitude > 0.001f)
+        {
+            facingDirection = GetAttackConstrainedFacingDirection(fallbackMoveDirection);
+            return true;
+        }
+
+        return false;
+    }
+
+    private void HandleAttackHitConfirmed(AttackType attackType, bool hitWasDrone)
+    {
+        bool ignoreDroneHitForMovementSuppression = false;
+        if (hitWasDrone)
+        {
+            attackLockSystem = attackLockSystem
+                ?? GetComponent<AttackLockSystem>()
+                ?? GetComponentInChildren<AttackLockSystem>()
+                ?? GetComponentInParent<AttackLockSystem>();
+
+            ignoreDroneHitForMovementSuppression = attackLockSystem != null
+                && attackLockSystem.ShouldIgnoreDroneHitsForGroundedAttackMovement(attackType);
+        }
+
+        if (disableAttackMovementAfterLandedHit)
+        {
+            bool suppressMovement = false;
+
+            if (attackType == AttackType.LightAOE || attackType == AttackType.HeavyAOE)
+            {
+                suppressMovement = !keepAttackMovementForAoeAttacks;
+            }
+            else if (attackType == AttackType.LightSingle || attackType == AttackType.HeavySingle)
+            {
+                suppressMovement = disableAttackMovementAfterSingleTargetHit;
+            }
+            else if (attackType == AttackType.LightAerial || attackType == AttackType.HeavyAerial)
+            {
+                suppressMovement = disableAttackMovementAfterAerialHit;
+            }
+
+            if (ignoreDroneHitForMovementSuppression)
+                suppressMovement = false;
+
+            if (suppressMovement)
+                attackMovementSuppressedByHit = true;
+        }
+
+        if (!reduceAttackTurningAfterLandingHit)
+            return;
+
+        if (postHitTurnReductionDuration <= 0f)
+            return;
+
+        attackTurnReductionTimer = Mathf.Max(attackTurnReductionTimer, postHitTurnReductionDuration);
+        if (freezeAttackFacingAnchorAfterHit)
+            attackFacingAnchorFrozenByHit = true;
     }
 
     private bool IsAnalogControlSchemeActive()

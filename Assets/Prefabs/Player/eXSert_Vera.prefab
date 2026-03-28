@@ -5597,7 +5597,12 @@ MonoBehaviour:
   softLockStopBuffer: 0.5
   softLockNoMoveRadius: 1.5
   softLockMoveDuration: 0.1
+  softLockRotateOnlyDuration: 0.1
+  allowInstantSoftLockSnap: 0
   onlySoftLockSingleTarget: 0
+  prioritizeSoftLockTargetFacingWhileAttacking: 1
+  softLockAttackFacingPersistDuration: 0.35
+  softLockAttackFacingMaxDistance: 4
   steerCamera: 1
   rotatePlayerDuringHardLock: 1
   hardLockRotateSpeed: 360
@@ -7893,8 +7898,16 @@ MonoBehaviour:
   friction: 10
   inputReleaseGrace: 0.08
   allowMovementWhileAttacking: 1
+  disableAttackMovementAfterLandedHit: 1
+  disableAttackMovementAfterSingleTargetHit: 1
+  disableAttackMovementAfterAerialHit: 0
+  keepAttackMovementForAoeAttacks: 1
   attackMovementSpeedMultiplier: 1
   maxAttackTurnAngleWhileAttacking: 50
+  reduceAttackTurningAfterLandingHit: 1
+  postHitMaxAttackTurnAngle: 10
+  postHitTurnReductionDuration: 0.22
+  freezeAttackFacingAnchorAfterHit: 1
   landingLockDuration: 0.35
   keyboardDoubleTapWindow: 0.25
   cameraTransform: {fileID: 2957161133258383196}
@@ -7922,6 +7935,8 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   prioritizeHardLockForAerialAssist: 1
+  prioritizeDronesForAerialAssist: 1
+  prioritizeHigherAerialTargets: 1
   allowAerialAssistRetarget: 1
   aerialAssistRetargetInterval: 0.08
   aerialLightAssistHorizontalSpeed: 10

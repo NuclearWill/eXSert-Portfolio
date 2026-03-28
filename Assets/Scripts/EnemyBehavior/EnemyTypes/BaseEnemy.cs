@@ -272,6 +272,11 @@ public abstract class BaseEnemy<TState, TTrigger> : BaseEnemyCore, IQueuedAttack
         parryStunCoroutine = StartCoroutine(ParryStunRoutine(duration));
     }
 
+    public override void ApplyHitStagger(float duration)
+    {
+        ApplyParryStun(duration);
+    }
+
     private IEnumerator ParryStunRoutine(float duration)
     {
         isParryStunned = true;

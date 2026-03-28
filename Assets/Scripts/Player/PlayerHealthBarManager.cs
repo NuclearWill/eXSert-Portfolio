@@ -59,6 +59,8 @@ public class PlayerHealthBarManager : MonoBehaviour, IHealthSystem, IDataPersist
     private float deathFadeNormalizedThreshold = 0f;
 
     [Header("Reactions")]
+    [SerializeField, Tooltip("When enabled, generic incoming damage can trigger random flinch stagger. Keep disabled if stagger should only come from explicitly configured sources.")]
+    private bool enableGenericDamageFlinch = false;
     [SerializeField, Range(0f, 1f)] private float flinchChance = 0.2f;
     [SerializeField, Range(0f, 2f)] private float flinchLockSeconds = 0.35f;
 
@@ -237,7 +239,7 @@ public class PlayerHealthBarManager : MonoBehaviour, IHealthSystem, IDataPersist
         bool skipFlinchThisHit = suppressNextFlinch;
         suppressNextFlinch = false;
 
-        if (currentHealth > 0f && !skipFlinchThisHit)
+        if (enableGenericDamageFlinch && currentHealth > 0f && !skipFlinchThisHit)
         {
             TryTriggerFlinch();
         }
@@ -428,6 +430,39 @@ public class PlayerHealthBarManager : MonoBehaviour, IHealthSystem, IDataPersist
         animationController?.PlayHit();
 
         float timer = Mathf.Max(0.05f, flinchLockSeconds);
+        while (timer > 0f)
+        {
+            timer -= Time.deltaTime;
+            yield return null;
+        }
+
+        flinchRoutine = null;
+    }
+
+    public void ApplyForcedStagger(float duration, bool resetCombo = true)
+    {
+        if (isDead)
+            return;
+
+        if (duration <= 0f)
+            duration = flinchLockSeconds;
+
+        if (flinchRoutine != null)
+        {
+            StopCoroutine(flinchRoutine);
+            flinchRoutine = null;
+        }
+
+        flinchRoutine = StartCoroutine(ForcedStaggerRoutine(duration, resetCombo));
+    }
+
+    private IEnumerator ForcedStaggerRoutine(float duration, bool resetCombo)
+    {
+        attackManager?.ForceCancelCurrentAttack(resetCombo: resetCombo);
+        playerMovement?.ApplyExternalStun(duration);
+        animationController?.PlayHit();
+
+        float timer = Mathf.Max(0.05f, duration);
         while (timer > 0f)
         {
             timer -= Time.deltaTime;
