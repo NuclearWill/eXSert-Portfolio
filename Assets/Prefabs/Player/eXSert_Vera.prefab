@@ -5437,6 +5437,7 @@ MonoBehaviour:
   attackDatabase: {fileID: 11400000, guid: 5faf74d628b25214ca871b83ff4b455d, type: 2}
   characterController: {fileID: 2289477533837267770}
   playerMovement: {fileID: 6150044602222399215}
+  attackLockSystem: {fileID: 0}
   vfxAnchorRegistry: {fileID: 0}
   guardAttackOverride: {fileID: 11400000, guid: 5a480b1f839418f4f8f624bbd8b6cc3d, type: 2}
   guardAttackId: G_Attack
@@ -5458,7 +5459,29 @@ MonoBehaviour:
     m_Bits: 4294967295
   plungeDroneCollapseDownwardVelocity: 16
   plungeDroneCollapseRadialForce: 6
+  enableLightAerialDroneReposition: 1
+  lightAerialDroneRepositionDistance: 1.8
+  lightAerialDroneRepositionVerticalOffset: 0.35
+  lightAerialDroneRepositionMinPlayerBelow: 0.1
+  lightAerialDroneRepositionForwardBias: 0.45
+  staggerEnemiesOnAllAttacks: 0
+  staggerOnSingleTargetAttacks: 1
+  staggerOnAoeAttacks: 0
+  staggerOnAerialAttacks: 1
+  staggerOnSx1: 1
+  staggerOnSx2: 1
+  staggerOnSx3: 1
+  staggerOnSx4: 1
+  staggerOnSx5: 1
+  staggerOnAy1: 1
+  staggerOnAy2: 1
+  staggerOnAy3: 1
+  staggerOnAcX1: 1
+  staggerOnAcX2: 1
+  staggerOnPlunge: 1
+  enemyStaggerDuration: 0.35
   blockAttackForwardMoveWhenEnemyNear: 1
+  blockAttackForwardMoveDuringSoftLockMotion: 1
   attackForwardMoveBlockDistance: 1.25
   attackForwardMoveBlockAngle: 80
   debugPlungeDamage: 1
@@ -5600,6 +5623,13 @@ MonoBehaviour:
   softLockRotateOnlyDuration: 0.1
   allowInstantSoftLockSnap: 0
   onlySoftLockSingleTarget: 0
+  prioritizeCenterOfViewForSoftLock: 1
+  prioritizeMovementAndViewAlignedSoftLockTarget: 1
+  softLockMovementInputThreshold: 0.2
+  softLockMovementAlignmentThreshold: 0.35
+  softLockCenteredViewportRadius: 0.22
+  ignoreDronesForNonAerialSoftLock: 1
+  skipSoftLockPositionNudgeForForwardMoveAttacks: 1
   prioritizeSoftLockTargetFacingWhileAttacking: 1
   softLockAttackFacingPersistDuration: 0.35
   softLockAttackFacingMaxDistance: 4
@@ -7937,6 +7967,7 @@ MonoBehaviour:
   prioritizeHardLockForAerialAssist: 1
   prioritizeDronesForAerialAssist: 1
   prioritizeHigherAerialTargets: 1
+  prioritizeCenterOfViewForAerialAssist: 1
   allowAerialAssistRetarget: 1
   aerialAssistRetargetInterval: 0.08
   aerialLightAssistHorizontalSpeed: 10
@@ -8010,6 +8041,7 @@ MonoBehaviour:
   destroyPlayerOnDeath: 0
   deathFadeDelaySeconds: 3.5
   deathFadeNormalizedThreshold: 0.95
+  enableGenericDamageFlinch: 0
   flinchChance: 0.2
   flinchLockSeconds: 0.35
   enableDashInvincibility: 1
