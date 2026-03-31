@@ -136,6 +136,16 @@ namespace EnemyBehavior.Boss.Cleanser
 
         [Header("Misc Configuration")]
 
+        [Header("Player Stagger")]
+        [Tooltip("If enabled, Cleanser halberd melee hit windows force-stagger the player.")]
+        [SerializeField] private bool staggerPlayerOnHalberdMeleeHit = true;
+        [Tooltip("If enabled, Cleanser wing melee hit windows force-stagger the player.")]
+        [SerializeField] private bool staggerPlayerOnWingMeleeHit = true;
+        [Tooltip("Forced stagger duration for Cleanser melee hits.")]
+        [SerializeField, Range(0.05f, 2f)] private float meleeHitStaggerDuration = 0.4f;
+        [Tooltip("If enabled, player combo is reset when Cleanser melee stagger is applied.")]
+        [SerializeField] private bool resetPlayerComboOnMeleeStagger = true;
+
         [Header("Windup Damage Reduction")]
         [Tooltip("If true, check for animation events to enable/disable damage reduction.")]
         public bool UseDamageReductionEvents = true;
@@ -2683,6 +2693,17 @@ namespace EnemyBehavior.Boss.Cleanser
             if (player.TryGetComponent<IHealthSystem>(out var health))
             {
                 health.LoseHP(damage);
+
+                bool shouldStagger = category switch
+                {
+                    AttackCategory.Halberd => staggerPlayerOnHalberdMeleeHit,
+                    AttackCategory.Wing => staggerPlayerOnWingMeleeHit,
+                    _ => false
+                };
+
+                if (shouldStagger && health is PlayerHealthBarManager playerHealth)
+                    playerHealth.ApplyForcedStagger(meleeHitStaggerDuration, resetPlayerComboOnMeleeStagger);
+
                 return true;
             }
             

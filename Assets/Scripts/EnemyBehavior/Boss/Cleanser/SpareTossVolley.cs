@@ -14,6 +14,10 @@ namespace EnemyBehavior.Boss.Cleanser
         [SerializeField] private float fallingHitRadius = 1.25f;
         [Tooltip("Damage multiplier while player is guarding against falling spare weapons.")]
         [SerializeField, Range(0f, 1f)] private float guardDamageMultiplier = 0.25f;
+        [Tooltip("If enabled, falling spare-weapon hits force-stagger the player.")]
+        [SerializeField] private bool staggerPlayerOnFallingHit = false;
+        [Tooltip("Forced stagger duration applied to player by falling spare-weapon hits.")]
+        [SerializeField, Range(0.05f, 2f)] private float fallingHitStaggerDuration = 0.4f;
 
         private Transform player;
 
@@ -107,6 +111,10 @@ namespace EnemyBehavior.Boss.Cleanser
             }
 
             health.LoseHP(damage);
+
+            if (staggerPlayerOnFallingHit && health is PlayerHealthBarManager playerHealth)
+                playerHealth.ApplyForcedStagger(fallingHitStaggerDuration, resetCombo: true);
+
             return true;
         }
 
