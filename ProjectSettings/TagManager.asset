@@ -25,6 +25,7 @@ TagManager:
   - PlayerCamera
   - Boss
   - ElevatorWalls
+  - Vera
   layers:
   - Default
   - TransparentFX
@@ -45,7 +46,7 @@ TagManager:
   - RoombaEnvironmentWalls
   - PlayerCamera
   - G
-  - 
+  - AlwaysOnTop
   - 
   - 
   - 

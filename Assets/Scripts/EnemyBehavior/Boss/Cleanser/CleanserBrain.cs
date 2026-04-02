@@ -7,6 +7,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.Serialization;
 using Utilities.Combat;
 using Managers.TimeLord; // For pause event handling
 
@@ -53,48 +54,75 @@ namespace EnemyBehavior.Boss.Cleanser
         [SerializeField] private bool exemptFromAttackQueue = true;
         
         [Header("Basic Attack Configurations")]
+        [Tooltip("Basic melee attack descriptor: Lunge.")]
         public CleanserAttackDescriptor LungeAttack;
+        [Tooltip("Basic melee attack descriptor: Lunge with blocking windup.")]
+        public CleanserAttackDescriptor LungeBlockAttack;
+        [Tooltip("Basic melee attack descriptor: Overhead cleave.")]
         public CleanserAttackDescriptor OverheadCleaveAttack;
+        [Tooltip("Basic melee attack descriptor: Cleave.")]
+        public CleanserAttackDescriptor CleaveAttack;
+        [Tooltip("Basic melee attack descriptor: Advancing cleave.")]
+        public CleanserAttackDescriptor CleaveAdvanceAttack;
+        [Tooltip("Basic melee attack descriptor: Pommel strike.")]
+        public CleanserAttackDescriptor PommelStrikeAttack;
+        [Tooltip("Basic melee attack descriptor: Diagonal upward slash.")]
+        public CleanserAttackDescriptor DiagUpwardSlashAttack;
+        [Tooltip("Basic melee attack descriptor: Wing bash.")]
+        public CleanserAttackDescriptor WingBashAttack;
+        [Tooltip("Basic mixed attack descriptor: Slash into slap.")]
         public CleanserAttackDescriptor SlashIntoSlapAttack;
+        [Tooltip("Basic mixed attack descriptor: Rake into spin slash.")]
         public CleanserAttackDescriptor RakeIntoSpinSlashAttack;
-        public CleanserAttackDescriptor SpinSlashOnlyAttack;
+        [Tooltip("Basic melee attack descriptor: Leg sweep.")]
         public CleanserAttackDescriptor LegSweepAttack;
-
-        [Header("Spare Toss Configuration")]
-        public SpareTossConfig SpareTossSettings = new SpareTossConfig();
-        [Tooltip("Prefab for the thrown weapon projectile (visual only - the actual spare weapon returns magnetically).")]
-        public GameObject ProjectilePrefab;
-        [Tooltip("Transform where projectiles spawn from (hand).")]
-        public Transform ProjectileSpawnPoint;
-
-        [Header("Spin Dash Configuration")]
-        public SpinDashConfig SpinDashSettings = new SpinDashConfig();
-
-        [Header("Knockback Attack Configuration")]
-        [Tooltip("Configuration for the knockback attack that pushes player away.")]
+        [Tooltip("Configuration for the knockback basic move that pushes player away.")]
         public KnockbackAttackConfig KnockbackSettings = new KnockbackAttackConfig();
-        
-        [Header("Mini Crescent Wave Configuration")]
-        [Tooltip("Configuration for the mini crescent wave ranged attack.")]
-        public MiniCrescentWaveConfig MiniCrescentSettings = new MiniCrescentWaveConfig();
-        
-        [Header("Gap-Closing Dash Configuration")]
-        [Tooltip("Configuration for the gap-closing dash (no hitbox).")]
-        public GapClosingDashConfig GapCloseDashSettings = new GapClosingDashConfig();
 
         [Header("Strong Attack Configurations")]
+        [Tooltip("Strong finisher descriptor: High Dive.")]
         public CleanserAttackDescriptor HighDiveAttack;
-        public CleanserAttackDescriptor AnimeDashSlashAttack;
-        
-        [Header("Whirlwind Configuration")]
+        [Tooltip("Detailed settings for the Anime Dash Slash strong finisher.")]
+        public AnimeDashSlashConfig AnimeDashSettings = new AnimeDashSlashConfig();
+        [Tooltip("Configuration for the SpinDash strong finisher (uses JumpSpinAttack animation clips/states).")]
+        [FormerlySerializedAs("JumpSpinSettings")]
+        public JumpSpinAttackConfig SpinDashSettings = new JumpSpinAttackConfig();
+        [Tooltip("Configuration for Whirlwind strong attack.")]
         public WhirlwindConfig WhirlwindSettings = new WhirlwindConfig();
 
         [Header("Ultimate Attack Configuration")]
+        [Tooltip("Main ultimate settings block for Double Maximum Sweep.")]
         public DoubleMaximumSweepConfig UltimateSettings = new DoubleMaximumSweepConfig();
-        [Tooltip("Prefab for the crescent wave projectile.")]
+        [Tooltip("Positions where Cleanser can jump to perform the double sweep setup.")]
+        public List<Transform> DoubleSweepPositions = new List<Transform>();
+        [Tooltip("Duration of stun when ultimate is canceled by aerial plunge finisher.")]
+        public float AerialFinisherStunDuration = 3f;
+        [Tooltip("Health percentage at which ultimate becomes available.")]
+        [Range(0f, 1f)] public float UltimateHealthThreshold = 0.5f;
+        [Tooltip("Minimum attacks between ultimate uses when using attack-count trigger mode.")]
+        public int MinAttacksBetweenUltimates = 15;
+        [Tooltip("If true, ultimate triggers by health threshold. If false, triggers by attacks since last ultimate.")]
+        public bool UltimateTriggeredByHealth = true;
+        [Tooltip("Animator state used during dedicated ultimate hover phase.")]
+        [SerializeField] private string stateUltimateHover = "JumpArcHold";
+
+        [Header("Crescent Wave Projectile Configuration")]
+        [Tooltip("Shared crescent-wave projectile settings used by DiagUpwardSlash and ultimate sweeps.")]
+        public CrescentArcProjectileConfig CrescentWaveProjectileConfiguration = new CrescentArcProjectileConfig();
+        [Tooltip("Legacy fallback projectile prefab used if per-attack crescent prefab is not assigned.")]
         public GameObject CrescentWavePrefab;
-        [Tooltip("Positions on walls where Cleanser can jump to for ultimate.")]
-        public List<Transform> WallJumpPositions = new List<Transform>();
+
+        [Header("Spare Toss Configuration")]
+        [Tooltip("Behavior settings for spare toss projectiles.")]
+        public SpareTossConfig SpareTossSettings = new SpareTossConfig();
+        [Tooltip("Prefab for the thrown weapon projectile (visual only - the actual spare weapon returns magnetically).")]
+        public GameObject ProjectilePrefab;
+        [Tooltip("Transform where spare toss projectiles spawn from (typically the hand).")]
+        public Transform ProjectileSpawnPoint;
+
+        [Header("Movement Configuration")]
+        [Tooltip("Configuration for the gap-closing dash (movement only, no hitbox).")]
+        public GapClosingDashConfig GapCloseDashSettings = new GapClosingDashConfig();
 
         [Header("Movement (Fallback if no Profile)")]
         [Tooltip("Base movement speed (used if profile is null).")]
@@ -106,11 +134,17 @@ namespace EnemyBehavior.Boss.Cleanser
         [Tooltip("Stopping distance from target (used if profile is null).")]
         public float FallbackStoppingDistance = 2f;
 
-        [Header("Dual-Wield Settings")]
-        [Tooltip("Chance (0-1) to pick up a spare weapon before starting a combo.")]
-        [Range(0f, 1f)] public float SpareWeaponPickupChance = 0.3f;
-        [Tooltip("If true, always picks up spare weapon before these specific attacks regardless of chance.")]
-        public bool AlwaysPickupForSpecialAttacks = true;
+        [Header("Misc Configuration")]
+
+        [Header("Player Stagger")]
+        [Tooltip("If enabled, Cleanser halberd melee hit windows force-stagger the player.")]
+        [SerializeField] private bool staggerPlayerOnHalberdMeleeHit = true;
+        [Tooltip("If enabled, Cleanser wing melee hit windows force-stagger the player.")]
+        [SerializeField] private bool staggerPlayerOnWingMeleeHit = true;
+        [Tooltip("Forced stagger duration for Cleanser melee hits.")]
+        [SerializeField, Range(0.05f, 2f)] private float meleeHitStaggerDuration = 0.4f;
+        [Tooltip("If enabled, player combo is reset when Cleanser melee stagger is applied.")]
+        [SerializeField] private bool resetPlayerComboOnMeleeStagger = true;
 
         [Header("Windup Damage Reduction")]
         [Tooltip("If true, check for animation events to enable/disable damage reduction.")]
@@ -118,32 +152,44 @@ namespace EnemyBehavior.Boss.Cleanser
         private bool isDamageReductionActive = false;
         private float currentDamageReduction = 1f;
 
-        [Header("Stun Settings")]
-        [Tooltip("Duration of stun when interrupted by aerial finisher during ultimate.")]
-        public float AerialFinisherStunDuration = 3f;
-        
-        [Header("Ultimate Trigger")]
-        [Tooltip("Health percentage at which ultimate becomes available.")]
-        [Range(0f, 1f)] public float UltimateHealthThreshold = 0.5f;
-        [Tooltip("Minimum attacks between ultimate uses.")]
-        public int MinAttacksBetweenUltimates = 15;
-        [Tooltip("If true, ultimate triggers based on health threshold. If false, uses attack count.")]
-        public bool UltimateTriggeredByHealth = true;
-
         [Header("References")]
+        [Tooltip("Combo system component reference.")]
         [SerializeField] private CleanserComboSystem comboSystem;
+        [Tooltip("Dual-wield system component reference.")]
         [SerializeField] private CleanserDualWieldSystem dualWieldSystem;
+        [Tooltip("Platform controller component reference.")]
         [SerializeField] private CleanserPlatformController platformController;
+        [Tooltip("Aggression system component reference.")]
         [SerializeField] private CleanserAggressionSystem aggressionSystem;
+        [Tooltip("Whirlwind suction effect component reference.")]
         [SerializeField] private VacuumSuctionEffect suctionEffect;
+        [Tooltip("Animation controller wrapper. Auto-found on Awake if left empty.")]
         [SerializeField] private CleanserAnimController animController;
+        [Tooltip("Animator component used for fallback parameter/trigger control. Auto-found on Awake if left empty.")]
         [SerializeField] private Animator animator;
+        [Tooltip("Audio source for boss SFX. Auto-falls back to SoundManager if left empty.")]
         [SerializeField] private AudioSource sfxSource;
 
+        [Header("Hitbox References")]
+        [Tooltip("Optional additional halberd colliders (for example pole capsule + blade sphere). Used together to derive halberd hit range.")]
+        [SerializeField] private List<Collider> halberdHitboxColliders = new List<Collider>();
+        [Tooltip("Collider that represents the wing hit volume. Used to derive hit range during wing hit windows.")]
+        [SerializeField] private Collider wingHitboxCollider;
+        [Tooltip("Collider used during SpinDash hold phase (typically a capsule around the whole body).")]
+        [SerializeField] private Collider spinDashHitboxCollider;
+        [Tooltip("Delay before re-enabling SpinDash hitbox after a successful hit, preventing per-frame damage ticks.")]
+        [SerializeField] private float spinDashHitboxRearmDelay = 0.08f;
+
         [Header("Animator Parameters")]
+        [Tooltip("Animator float parameter for movement speed magnitude.")]
         [SerializeField] private string paramMoveSpeed = "MoveSpeed";
+        [Tooltip("Animator bool parameter indicating moving/not moving state.")]
         [SerializeField] private string paramIsMoving = "IsMoving";
+        [Tooltip("Animator bool parameter indicating whether a player target is available.")]
+        [SerializeField] private string paramIsPlayerHere = "IsPlayerHere";
+        [Tooltip("Animator trigger parameter for stunned reaction.")]
         [SerializeField] private string triggerStunned = "Stunned";
+        [Tooltip("Animator trigger parameter for death.")]
         [SerializeField] private string triggerDeath = "Death";
 
         [Header("Attack Indicator VFX")]
@@ -172,15 +218,31 @@ namespace EnemyBehavior.Boss.Cleanser
         private bool isStunned;
         private bool isExecutingUltimate;
         private bool isExecutingAttack;
+        private bool isInUltimateHoverPhase;
+        private bool ultimateCanceledByAerial;
         private int attacksSinceUltimate;
         private bool hasUsedUltimate;
         private int aerialHitsReceived;
+        private float ultimateHoverPauseTimer;
         private Coroutine mainLoopCoroutine;
         private Coroutine currentAttackCoroutine;
         private Dictionary<string, float> attackCooldowns = new Dictionary<string, float>();
         private AttackCategory currentAttackCategory = AttackCategory.Halberd;
         private bool pickedUpWeaponThisCombo;
         private float baseAgentSpeed;
+        private bool waitingForUltimateLowSweepEvent;
+        private bool waitingForUltimateMidSweepEvent;
+        private Vector3 pendingUltimateSweepTargetPos;
+        private bool waitingForSpareTossReleaseEvent;
+        private bool spareTossReleaseEventReceived;
+        private bool spinDashHitboxPhaseActive;
+        private bool spinDashHitboxArmed;
+        private Coroutine spinDashHitboxRearmCoroutine;
+        private int spinDashRemainingHits;
+        private float spinDashTriggerDamage;
+        private bool animeDashTriggerArmed;
+        private float animeDashTriggerDamage;
+        private float defaultAnimatorSpeed = 1f;
 
         #region IQueuedAttacker Implementation
         
@@ -253,6 +315,12 @@ namespace EnemyBehavior.Boss.Cleanser
             }
             
             currentHealth -= finalDamage;
+
+            // During dedicated ultimate hover phase, player damage pauses the resolution timer briefly.
+            if (isInUltimateHoverPhase && finalDamage > 0f)
+            {
+                ultimateHoverPauseTimer = Mathf.Max(ultimateHoverPauseTimer, UltimateSettings.HoverTimerPauseOnDamage);
+            }
 
             // Notify aggression system that player hit the boss
             if (aggressionSystem != null)
@@ -360,12 +428,24 @@ namespace EnemyBehavior.Boss.Cleanser
             aggressionSystem = aggressionSystem ?? GetComponent<CleanserAggressionSystem>();
             animController = animController ?? GetComponent<CleanserAnimController>() ?? GetComponentInChildren<CleanserAnimController>();
             animator = animator ?? GetComponentInChildren<Animator>();
+            defaultAnimatorSpeed = animator != null ? Mathf.Max(0.01f, animator.speed) : 1f;
             
             ApplyMovementSettings();
             InitializeHealthBar();
             CachePlayerReference();
             InitializeAttackDescriptors();
             EnsurePlayerSlideOffSurface();
+
+            SetAllMeleeHitboxesEnabled(false);
+            if (spinDashHitboxCollider != null)
+            {
+                spinDashHitboxCollider.enabled = false;
+
+                var relay = spinDashHitboxCollider.GetComponent<CleanserSpinDashHitboxRelay>();
+                if (relay == null)
+                    relay = spinDashHitboxCollider.gameObject.AddComponent<CleanserSpinDashHitboxRelay>();
+                relay.Owner = this;
+            }
         }
 
         private void ApplyMovementSettings()
@@ -424,6 +504,9 @@ namespace EnemyBehavior.Boss.Cleanser
         private void OnEnable()
         {
             RegisterWithAttackQueue();
+            SetAllMeleeHitboxesEnabled(false);
+            if (spinDashHitboxCollider != null)
+                spinDashHitboxCollider.enabled = false;
             
             // Subscribe to pause events for audio handling
             PauseCoordinator.OnPaused += OnGamePaused;
@@ -453,6 +536,10 @@ namespace EnemyBehavior.Boss.Cleanser
                 StopCoroutine(currentAttackCoroutine);
                 currentAttackCoroutine = null;
             }
+
+            EndSpinDashHitboxPhase();
+            SetAllMeleeHitboxesEnabled(false);
+            ResetAnimationSpeed();
         }
 
         private void Update()
@@ -493,9 +580,18 @@ namespace EnemyBehavior.Boss.Cleanser
         private void UpdateAnimatorParameters()
         {
             if (agent == null) return;
+
+            if (animator != null && !string.IsNullOrEmpty(paramIsPlayerHere))
+            {
+                animator.SetBool(paramIsPlayerHere, player != null);
+            }
             
             float speed = agent.velocity.magnitude;
             float normalizedSpeed = agent.speed > 0f ? speed / agent.speed : 0f;
+
+            // Prevent locomotion updates from interrupting active attack/ultimate/stun animations.
+            if (isExecutingAttack || isExecutingUltimate || isStunned)
+                return;
             
             // Use animation controller if available, otherwise fall back to direct animator
             if (animController != null)
@@ -572,11 +668,29 @@ namespace EnemyBehavior.Boss.Cleanser
                     Cooldown = 2f,
                     RangeMin = 3f,
                     RangeMax = 8f,
-                    AnimationTrigger = "Lunge",
+                    AnimationTrigger = "Attack_Lunge",
                     HasWindupDamageReduction = true,
                     WindupDamageReduction = 0.5f,
                     IncludesMovement = true,
                     MovementDistance = 5f
+                };
+            }
+
+            if (string.IsNullOrEmpty(LungeBlockAttack?.ID))
+            {
+                LungeBlockAttack = new CleanserAttackDescriptor
+                {
+                    ID = "LungeBlock",
+                    Category = AttackCategory.Halberd,
+                    BaseDamage = 18f,
+                    Cooldown = 2.5f,
+                    RangeMin = 2f,
+                    RangeMax = 8f,
+                    AnimationTrigger = "Attack_LungeBlock",
+                    HasWindupDamageReduction = true,
+                    WindupDamageReduction = 0.5f,
+                    IncludesMovement = true,
+                    MovementDistance = 4f
                 };
             }
 
@@ -590,7 +704,79 @@ namespace EnemyBehavior.Boss.Cleanser
                     Cooldown = 2.5f,
                     RangeMin = 0f,
                     RangeMax = 4f,
-                    AnimationTrigger = "OverheadAttack"
+                    AnimationTrigger = "Attack_OverheadCleave"
+                };
+            }
+
+            if (string.IsNullOrEmpty(CleaveAttack?.ID))
+            {
+                CleaveAttack = new CleanserAttackDescriptor
+                {
+                    ID = "Cleave",
+                    Category = AttackCategory.Halberd,
+                    BaseDamage = 20f,
+                    Cooldown = 2.2f,
+                    RangeMin = 0f,
+                    RangeMax = 4f,
+                    AnimationTrigger = "Attack_Cleave"
+                };
+            }
+
+            if (string.IsNullOrEmpty(CleaveAdvanceAttack?.ID))
+            {
+                CleaveAdvanceAttack = new CleanserAttackDescriptor
+                {
+                    ID = "CleaveAdvance",
+                    Category = AttackCategory.Halberd,
+                    BaseDamage = 22f,
+                    Cooldown = 2.6f,
+                    RangeMin = 1f,
+                    RangeMax = 7f,
+                    AnimationTrigger = "Attack_CleaveAdvance",
+                    IncludesMovement = true,
+                    MovementDistance = 3.5f
+                };
+            }
+
+            if (string.IsNullOrEmpty(PommelStrikeAttack?.ID))
+            {
+                PommelStrikeAttack = new CleanserAttackDescriptor
+                {
+                    ID = "PommelStrike",
+                    Category = AttackCategory.Halberd,
+                    BaseDamage = 16f,
+                    Cooldown = 2f,
+                    RangeMin = 0f,
+                    RangeMax = 3f,
+                    AnimationTrigger = "Attack_PommelStrike"
+                };
+            }
+
+            if (string.IsNullOrEmpty(DiagUpwardSlashAttack?.ID))
+            {
+                DiagUpwardSlashAttack = new CleanserAttackDescriptor
+                {
+                    ID = "DiagUpwardSlash",
+                    Category = AttackCategory.Halberd,
+                    BaseDamage = 17f,
+                    Cooldown = 2f,
+                    RangeMin = 0f,
+                    RangeMax = 4f,
+                    AnimationTrigger = "Attack_DiagUpwardSlash"
+                };
+            }
+
+            if (string.IsNullOrEmpty(WingBashAttack?.ID))
+            {
+                WingBashAttack = new CleanserAttackDescriptor
+                {
+                    ID = "WingBash",
+                    Category = AttackCategory.Wing,
+                    BaseDamage = 14f,
+                    Cooldown = 2f,
+                    RangeMin = 0f,
+                    RangeMax = 3f,
+                    AnimationTrigger = "Attack_WingBash"
                 };
             }
 
@@ -604,7 +790,7 @@ namespace EnemyBehavior.Boss.Cleanser
                     Cooldown = 3f,
                     RangeMin = 0f,
                     RangeMax = 5f,
-                    AnimationTrigger = "SlashSlap",
+                    AnimationTrigger = "Attack_SlashSlap",
                     IsMultiPart = true,
                     PartCategories = new[] { AttackCategory.Halberd, AttackCategory.Wing },
                     IncludesMovement = true,
@@ -622,23 +808,9 @@ namespace EnemyBehavior.Boss.Cleanser
                     Cooldown = 3f,
                     RangeMin = 0f,
                     RangeMax = 4f,
-                    AnimationTrigger = "RakeSpin",
+                    AnimationTrigger = "Attack_RakeSpin",
                     IsMultiPart = true,
                     PartCategories = new[] { AttackCategory.Wing, AttackCategory.Halberd }
-                };
-            }
-
-            if (string.IsNullOrEmpty(SpinSlashOnlyAttack?.ID))
-            {
-                SpinSlashOnlyAttack = new CleanserAttackDescriptor
-                {
-                    ID = "SpinSlashOnly",
-                    Category = AttackCategory.Halberd,
-                    BaseDamage = 20f,
-                    Cooldown = 2f,
-                    RangeMin = 0f,
-                    RangeMax = 4f,
-                    AnimationTrigger = "SpinSlash"
                 };
             }
 
@@ -652,7 +824,7 @@ namespace EnemyBehavior.Boss.Cleanser
                     Cooldown = 4f,
                     RangeMin = 0f,
                     RangeMax = 5f,
-                    AnimationTrigger = "LegSweep",
+                    AnimationTrigger = "Attack_LegSweep",
                     CanStunPlayer = true
                 };
             }
@@ -667,23 +839,12 @@ namespace EnemyBehavior.Boss.Cleanser
                     Cooldown = 8f,
                     RangeMin = 0f,
                     RangeMax = 10f,
-                    AnimationTrigger = "HighDive"
+                    AnimationTrigger = "Attack_HighDive"
                 };
             }
 
-            if (string.IsNullOrEmpty(AnimeDashSlashAttack?.ID))
-            {
-                AnimeDashSlashAttack = new CleanserAttackDescriptor
-                {
-                    ID = "AnimeDashSlash",
-                    Category = AttackCategory.Halberd,
-                    BaseDamage = 12f,
-                    Cooldown = 10f,
-                    RangeMin = 0f,
-                    RangeMax = 15f,
-                    AnimationTrigger = "AnimeDash"
-                };
-            }
+            if (AnimeDashSettings == null)
+                AnimeDashSettings = new AnimeDashSlashConfig();
         }
 
         #region Main Combat Loop
@@ -841,38 +1002,20 @@ namespace EnemyBehavior.Boss.Cleanser
             comboSystem.StartCombo(combo);
             pickedUpWeaponThisCombo = false;
             
-            // Chance-based pickup at START of combo
-            if (dualWieldSystem != null && !dualWieldSystem.IsHoldingSpareWeapon 
-                && dualWieldSystem.AvailableSpareWeaponCount > 0)
-            {
-                if (Random.value < SpareWeaponPickupChance)
-                {
-                    dualWieldSystem.PickupSpareWeapon();
-                    yield return new WaitUntil(() => !dualWieldSystem.IsPickingUp);
-                    pickedUpWeaponThisCombo = true;
-                }
-            }
-            
             while (comboSystem.IsExecutingCombo)
             {
                 var step = comboSystem.GetCurrentStep();
                 if (step == null)
                     break;
-                
-                // Check for forced pickup before special attacks
-                if (AlwaysPickupForSpecialAttacks && step.IsFinisher && !pickedUpWeaponThisCombo)
+
+                // Step-directed pickup (designer controlled).
+                if (step.PickupSpareWeaponBefore && dualWieldSystem != null
+                    && !dualWieldSystem.IsHoldingSpareWeapon
+                    && dualWieldSystem.AvailableSpareWeaponCount > 0)
                 {
-                    bool isSpecialAttack = step.StrongAttack == CleanserStrongAttack.AnimeDashSlash 
-                        || step.StrongAttack == CleanserStrongAttack.Whirlwind;
-                        
-                    if (isSpecialAttack && dualWieldSystem != null 
-                        && !dualWieldSystem.IsHoldingSpareWeapon 
-                        && dualWieldSystem.AvailableSpareWeaponCount > 0)
-                    {
-                        dualWieldSystem.PickupSpareWeapon();
-                        yield return new WaitUntil(() => !dualWieldSystem.IsPickingUp);
-                        pickedUpWeaponThisCombo = true;
-                    }
+                    dualWieldSystem.PickupSpareWeapon();
+                    yield return new WaitUntil(() => !dualWieldSystem.IsPickingUp);
+                    pickedUpWeaponThisCombo = true;
                 }
                 
                 if (step.PreDelay > 0f)
@@ -897,10 +1040,18 @@ namespace EnemyBehavior.Boss.Cleanser
                 yield return null;
             }
             
-            // Release spare weapon at END of combo (returns magnetically to rest position)
-            if (pickedUpWeaponThisCombo && dualWieldSystem != null && dualWieldSystem.IsHoldingSpareWeapon)
+            // Clean up stockpiled/lodged spare weapons at END of combo.
+            if (dualWieldSystem != null)
             {
-                dualWieldSystem.ReleaseCurrentWeapon();
+                while (dualWieldSystem.IsHoldingSpareWeapon)
+                {
+                    dualWieldSystem.ReleaseCurrentWeapon();
+                }
+
+                if (dualWieldSystem.LodgedWeaponCount > 0)
+                {
+                    dualWieldSystem.ReturnAllLodgedWeaponsToRest();
+                }
             }
         }
 
@@ -914,8 +1065,26 @@ namespace EnemyBehavior.Boss.Cleanser
                 case CleanserBasicAttack.Lunge:
                     yield return ExecuteAttackWithAnimationEvents(LungeAttack);
                     break;
+                case CleanserBasicAttack.LungeBlock:
+                    yield return ExecuteAttackWithAnimationEvents(LungeBlockAttack);
+                    break;
                 case CleanserBasicAttack.OverheadCleave:
                     yield return ExecuteAttackWithAnimationEvents(OverheadCleaveAttack);
+                    break;
+                case CleanserBasicAttack.Cleave:
+                    yield return ExecuteAttackWithAnimationEvents(CleaveAttack);
+                    break;
+                case CleanserBasicAttack.CleaveAdvance:
+                    yield return ExecuteAttackWithAnimationEvents(CleaveAdvanceAttack);
+                    break;
+                case CleanserBasicAttack.PommelStrike:
+                    yield return ExecuteAttackWithAnimationEvents(PommelStrikeAttack);
+                    break;
+                case CleanserBasicAttack.DiagUpwardSlash:
+                    yield return ExecuteAttackWithAnimationEvents(DiagUpwardSlashAttack);
+                    break;
+                case CleanserBasicAttack.WingBash:
+                    yield return ExecuteAttackWithAnimationEvents(WingBashAttack);
                     break;
                 case CleanserBasicAttack.SlashIntoSlap:
                     yield return ExecuteAttackWithAnimationEvents(SlashIntoSlapAttack);
@@ -926,17 +1095,19 @@ namespace EnemyBehavior.Boss.Cleanser
                 case CleanserBasicAttack.SpareToss:
                     yield return ExecuteSpareToss();
                     break;
-                case CleanserBasicAttack.SpinDash:
-                    yield return ExecuteSpinDash();
-                    break;
                 case CleanserBasicAttack.LegSweep:
                     yield return ExecuteAttackWithAnimationEvents(LegSweepAttack);
                     break;
                 case CleanserBasicAttack.Knockback:
                     yield return ExecuteKnockbackAttack();
                     break;
-                case CleanserBasicAttack.MiniCrescentWave:
-                    yield return ExecuteMiniCrescentWave();
+                case (CleanserBasicAttack)9:
+                    // Legacy serialized value: MiniCrescentWave now routes to DiagUpwardSlash behavior.
+                    yield return ExecuteAttackWithAnimationEvents(DiagUpwardSlashAttack);
+                    break;
+                case (CleanserBasicAttack)16:
+                    // Legacy serialized value: Basic SpinDash now routes to SpinDash strong behavior.
+                    yield return ExecuteSpinDash();
                     break;
             }
             
@@ -960,6 +1131,9 @@ namespace EnemyBehavior.Boss.Cleanser
                 case CleanserStrongAttack.Whirlwind:
                     yield return ExecuteWhirlwind();
                     break;
+                case CleanserStrongAttack.SpinDash:
+                    yield return ExecuteSpinDash();
+                    break;
             }
             
             isExecutingAttack = false;
@@ -977,6 +1151,8 @@ namespace EnemyBehavior.Boss.Cleanser
         private IEnumerator ExecuteAttackWithAnimationEvents(CleanserAttackDescriptor attack)
         {
             if (attack == null) yield break;
+
+            ApplyAnimationSpeedMultiplier(attack.AnimationSpeedMultiplier);
             
             currentAttack = attack;
             currentAttackCategory = attack.Category;
@@ -1032,6 +1208,8 @@ namespace EnemyBehavior.Boss.Cleanser
             
             // Disable damage reduction
             SetDamageReduction(false, 1f);
+
+            ResetAnimationSpeed();
             
             // If we timed out (no animation), do a basic hit check
             if (elapsed >= timeout)
@@ -1048,6 +1226,7 @@ namespace EnemyBehavior.Boss.Cleanser
         // Runtime state for animation events
         private bool attackAnimationComplete = false;
         private bool isHitboxActive = false;
+        private bool hasAppliedDamageThisHitboxWindow = false;
         private CleanserAttackDescriptor currentAttack;
 
         /// <summary>
@@ -1066,6 +1245,17 @@ namespace EnemyBehavior.Boss.Cleanser
         {
             if (!isExecutingAttack) return;
             isHitboxActive = true;
+            hasAppliedDamageThisHitboxWindow = false;
+
+            SetAllMeleeHitboxesEnabled(false);
+            if (currentAttackCategory == AttackCategory.Wing)
+            {
+                SetWingHitboxEnabled(true);
+            }
+            else
+            {
+                SetHalberdHitboxesEnabled(true);
+            }
             
             // Hide attack indicator when hitbox becomes active (if duration was 0)
             if (attackIndicatorDuration <= 0f)
@@ -1084,6 +1274,8 @@ namespace EnemyBehavior.Boss.Cleanser
         public void OnAttackHitboxEnd()
         {
             isHitboxActive = false;
+            hasAppliedDamageThisHitboxWindow = false;
+            SetAllMeleeHitboxesEnabled(false);
             
             // Play impact SFX/VFX when hitbox ends (attack follow-through)
             if (currentAttack != null)
@@ -1101,11 +1293,50 @@ namespace EnemyBehavior.Boss.Cleanser
         }
 
         /// <summary>
+        /// Animation Event: Halberd-specific hitbox start.
+        /// </summary>
+        public void OnHalberdHitboxStart()
+        {
+            currentAttackCategory = AttackCategory.Halberd;
+            OnAttackHitboxStart();
+        }
+
+        /// <summary>
+        /// Animation Event: Halberd-specific hitbox end.
+        /// </summary>
+        public void OnHalberdHitboxEnd()
+        {
+            OnAttackHitboxEnd();
+        }
+
+        /// <summary>
+        /// Animation Event: Wing-specific hitbox start.
+        /// </summary>
+        public void OnWingHitboxStart()
+        {
+            currentAttackCategory = AttackCategory.Wing;
+            OnAttackHitboxStart();
+        }
+
+        /// <summary>
+        /// Animation Event: Wing-specific hitbox end.
+        /// </summary>
+        public void OnWingHitboxEnd()
+        {
+            OnAttackHitboxEnd();
+        }
+
+        /// <summary>
         /// Animation Event: Called for multi-part attacks to switch category mid-attack.
         /// </summary>
         public void OnSwitchToWingCategory()
         {
             currentAttackCategory = AttackCategory.Wing;
+            if (isHitboxActive)
+            {
+                SetHalberdHitboxesEnabled(false);
+                SetWingHitboxEnabled(true);
+            }
 #if UNITY_EDITOR
             EnemyBehaviorDebugLogBools.Log(nameof(CleanserBrain), "[Cleanser] Switched to Wing category.");
 #endif
@@ -1117,6 +1348,11 @@ namespace EnemyBehavior.Boss.Cleanser
         public void OnSwitchToHalberdCategory()
         {
             currentAttackCategory = AttackCategory.Halberd;
+            if (isHitboxActive)
+            {
+                SetWingHitboxEnabled(false);
+                SetHalberdHitboxesEnabled(true);
+            }
 #if UNITY_EDITOR
             EnemyBehaviorDebugLogBools.Log(nameof(CleanserBrain), "[Cleanser] Switched to Halberd category.");
 #endif
@@ -1129,6 +1365,55 @@ namespace EnemyBehavior.Boss.Cleanser
         {
             if (!isExecutingAttack || player == null) return;
             StartCoroutine(DoAttackMovement());
+        }
+
+        /// <summary>
+        /// Animation Event: Spawns DiagUpwardSlash projectile(s) while the halberd hitbox attack is active.
+        /// </summary>
+        public void OnDiagUpwardSlashProjectile()
+        {
+            if (!isExecutingAttack || player == null)
+                return;
+
+            SpawnCrescentArcProjectiles(CrescentWaveProjectileConfiguration, player.position, 0f);
+        }
+
+        /// <summary>
+        /// Animation Event: Launches stockpiled spare weapons for SpareToss timing.
+        /// </summary>
+        public void OnSpareTossRelease()
+        {
+            if (!isExecutingAttack)
+                return;
+
+            spareTossReleaseEventReceived = true;
+            waitingForSpareTossReleaseEvent = false;
+        }
+
+        /// <summary>
+        /// Animation Event: Spawns the ultimate low sweep projectile(s).
+        /// </summary>
+        public void OnUltimateLowSweepProjectile()
+        {
+            if (!isExecutingUltimate)
+                return;
+
+            waitingForUltimateLowSweepEvent = false;
+            SpawnCrescentWave(UltimateSettings.LowSweepHeight, pendingUltimateSweepTargetPos);
+            PlaySFX(UltimateSettings.SweepSFX);
+        }
+
+        /// <summary>
+        /// Animation Event: Spawns the ultimate mid sweep projectile(s).
+        /// </summary>
+        public void OnUltimateMidSweepProjectile()
+        {
+            if (!isExecutingUltimate)
+                return;
+
+            waitingForUltimateMidSweepEvent = false;
+            SpawnCrescentWave(UltimateSettings.MidSweepHeight, pendingUltimateSweepTargetPos);
+            PlaySFX(UltimateSettings.SweepSFX);
         }
 
         private IEnumerator DoAttackMovement()
@@ -1155,100 +1440,169 @@ namespace EnemyBehavior.Boss.Cleanser
 
         private IEnumerator ExecuteSpareToss()
         {
-            if (ProjectilePrefab == null || ProjectileSpawnPoint == null)
+            if (dualWieldSystem == null)
             {
 #if UNITY_EDITOR
-                EnemyBehaviorDebugLogBools.LogWarning(nameof(CleanserBrain), "[Cleanser] SpareToss failed: missing prefab or spawn point.");
+                EnemyBehaviorDebugLogBools.LogWarning(nameof(CleanserBrain), "[Cleanser] SpareToss failed: DualWield/stockpile system missing.");
 #endif
                 yield break;
             }
 
             yield return FaceTarget(player, 0.3f);
-            
-            // Randomize path type before throw
-            SpareTossSettings.RandomizePathType();
-            
+
+            ApplyAnimationSpeedMultiplier(SpareTossSettings.AnimationSpeedMultiplier);
+
             // Use animation trigger from config
             TriggerAnimation(SpareTossSettings.AnimationTrigger);
             PlaySFX(SpareTossSettings.ThrowSFX);
-            
-            // Wait for throw animation event or fallback
-            yield return new WaitForSeconds(0.4f);
-            
-            for (int i = 0; i < SpareTossSettings.ProjectileCount; i++)
+
+            waitingForSpareTossReleaseEvent = true;
+            spareTossReleaseEventReceived = false;
+
+            const float releaseFallbackTimeout = 1.2f;
+            float elapsed = 0f;
+            while (!spareTossReleaseEventReceived && elapsed < releaseFallbackTimeout)
             {
-                var projObj = Instantiate(ProjectilePrefab, ProjectileSpawnPoint.position, ProjectileSpawnPoint.rotation);
-                var proj = projObj.GetComponent<CleanserProjectile>();
-                
-                if (proj != null)
-                {
-                    // Pass the dual wield system for magnetic return callback
-                    proj.Initialize(player, transform, SpareTossSettings, dualWieldSystem);
-                }
-                
-                if (SpareTossSettings.ThrowSequentially && i < SpareTossSettings.ProjectileCount - 1)
-                {
-                    yield return new WaitForSeconds(0.3f);
-                }
+                elapsed += Time.deltaTime;
+                yield return null;
             }
+
+            waitingForSpareTossReleaseEvent = false;
+
+            if (!spareTossReleaseEventReceived)
+            {
+#if UNITY_EDITOR
+                EnemyBehaviorDebugLogBools.LogWarning(nameof(CleanserBrain), "[Cleanser] SpareToss release event not received. Using fallback release timing.");
+#endif
+            }
+
+            Vector3 tossCenter = player != null ? player.position : transform.position + transform.forward * 6f;
+            yield return dualWieldSystem.LaunchStockpiledWeaponsToGround(tossCenter);
             
-            yield return new WaitForSeconds(0.4f);
+            yield return new WaitForSeconds(0.15f);
+            ResetAnimationSpeed();
         }
 
         private IEnumerator ExecuteSpinDash()
         {
-            int dashCount = 1;
-            
-            if (SpinDashSettings.RandomDashCount)
+            if (player == null) yield break;
+
+            yield return FaceTarget(player, 0.1f);
+            ShowAttackIndicator();
+
+            ApplyAnimationSpeedMultiplier(SpinDashSettings.WindupAnimSpeedMultiplier);
+            TriggerAnimation(SpinDashSettings.WindupTrigger);
+            PlaySFX(SpinDashSettings.WindupSFX);
+            yield return WaitForAnimationStateToFinish(SpinDashSettings.WindupTrigger, 0.8f);
+
+            if (!string.IsNullOrEmpty(SpinDashSettings.HPWindupTrigger))
             {
-                dashCount = Random.value > 0.5f ? 3 : 1;
-            }
-            else if (SpinDashSettings.AlwaysTripleDash)
-            {
-                dashCount = 3;
+                ApplyAnimationSpeedMultiplier(SpinDashSettings.HPWindupAnimSpeedMultiplier);
+                TriggerAnimation(SpinDashSettings.HPWindupTrigger);
+                yield return WaitForAnimationStateToFinish(SpinDashSettings.HPWindupTrigger, 0.6f);
             }
 
-            // Use animation trigger from config
-            TriggerAnimation(SpinDashSettings.AnimationTrigger);
-            PlaySFX(SpinDashSettings.DashSFX);
-            
-            if (SpinDashSettings.DashVFX != null)
+            ApplyAnimationSpeedMultiplier(SpinDashSettings.HoldPoseAnimSpeedMultiplier);
+            TriggerAnimation(SpinDashSettings.HoldPoseTrigger);
+            PlaySFX(SpinDashSettings.HoldSFX);
+
+            GameObject spinVfxInstance = null;
+            if (SpinDashSettings.SpinVFX != null)
             {
-                Instantiate(SpinDashSettings.DashVFX, transform.position, transform.rotation, transform);
+                spinVfxInstance = Instantiate(SpinDashSettings.SpinVFX, transform.position, transform.rotation, transform);
             }
-            
-            yield return new WaitForSeconds(0.3f);
-            
-            for (int i = 0; i < dashCount; i++)
+
+            var dashPoints = dualWieldSystem != null ? dualWieldSystem.GetLodgedWeaponPositions() : new List<Vector3>();
+            if (dashPoints.Count == 0 && player != null)
             {
-                if (player == null) break;
-                
-                Vector3 targetPos = player.position;
-                Vector3 dashDir = (targetPos - transform.position).normalized;
-                transform.forward = dashDir;
-                
+                dashPoints.Add(player.position);
+            }
+
+            agent.enabled = false;
+            BeginSpinDashHitboxPhase();
+            for (int i = 0; i < dashPoints.Count; i++)
+            {
+                Vector3 target = dashPoints[i];
+                target.y = transform.position.y;
+
+                Vector3 start = transform.position;
+                float distance = Vector3.Distance(start, target);
+                float dashDuration = GetSpinDashSegmentDuration(distance);
+
                 float elapsed = 0f;
-                while (elapsed < SpinDashSettings.DashDuration)
+                while (elapsed < dashDuration)
                 {
                     elapsed += Time.deltaTime;
-                    agent.Move(dashDir * SpinDashSettings.DashSpeed * Time.deltaTime);
-                    CheckMeleeHit(15f, AttackCategory.Halberd, 2f);
+                    float t = elapsed / dashDuration;
+                    transform.position = Vector3.Lerp(start, target, t);
+
+                    Vector3 moveDir = (target - transform.position).normalized;
+                    moveDir.y = 0f;
+                    if (moveDir.sqrMagnitude > 0.001f)
+                    {
+                        transform.forward = Vector3.Slerp(transform.forward, moveDir, Time.deltaTime * 14f);
+                    }
+
                     yield return null;
                 }
-                
-                if (i < dashCount - 1)
+
+                yield return new WaitForSeconds(0.05f);
+            }
+
+            // Final dash ends at the player.
+            if (player != null)
+            {
+                Vector3 finalTarget = player.position;
+                finalTarget.y = transform.position.y;
+
+                Vector3 start = transform.position;
+                float distance = Vector3.Distance(start, finalTarget);
+                float dashDuration = GetSpinDashSegmentDuration(distance);
+                float elapsed = 0f;
+
+                while (elapsed < dashDuration)
                 {
-                    yield return new WaitForSeconds(SpinDashSettings.DelayBetweenDashes);
+                    elapsed += Time.deltaTime;
+                    if (SpinDashSettings.TrackPlayerDuringHold)
+                    {
+                        finalTarget = player.position;
+                        finalTarget.y = transform.position.y;
+                    }
+                    float t = elapsed / dashDuration;
+                    transform.position = Vector3.Lerp(start, finalTarget, t);
+                    yield return null;
                 }
             }
-            
-            yield return new WaitForSeconds(0.5f);
+
+            EndSpinDashHitboxPhase();
+
+            agent.enabled = true;
+            agent.Warp(transform.position);
+
+            if (dualWieldSystem != null && dualWieldSystem.LodgedWeaponCount > 0)
+            {
+                dualWieldSystem.ReturnAllLodgedWeaponsToRest();
+            }
+
+            if (spinVfxInstance != null)
+            {
+                Destroy(spinVfxInstance);
+            }
+
+            ApplyAnimationSpeedMultiplier(SpinDashSettings.WindDownAnimSpeedMultiplier);
+            TriggerAnimation(SpinDashSettings.WindDownTrigger);
+            PlaySFX(SpinDashSettings.WindDownSFX);
+            yield return WaitForAnimationStateToFinish(SpinDashSettings.WindDownTrigger, 0.7f);
+            ResetAnimationSpeed();
+
+            HideAttackIndicator();
         }
 
         private IEnumerator ExecuteHighDive()
         {
             if (player == null) yield break;
-            
+
+            ApplyAnimationSpeedMultiplier(HighDiveAttack.AnimationSpeedMultiplier);
             TriggerAnimation("Attack_HighDive");
             PlaySFX(HighDiveAttack.AttackSFX);
             
@@ -1294,70 +1648,149 @@ namespace EnemyBehavior.Boss.Cleanser
             CheckAoEHit(HighDiveAttack.BaseDamage, 4f, AttackCategory.Halberd);
             
             yield return new WaitForSeconds(0.8f);
+            ResetAnimationSpeed();
         }
 
         private IEnumerator ExecuteAnimeDashSlash()
         {
             if (player == null) yield break;
-            
-            // Note: The actual animation implementation for this is TBD
-            // This is a placeholder for the pentagram dash attack
-            
-            int dashCount = 5;
-            float orbitRadius = 6f;
-            
-            TriggerAnimation("Attack_AnimeDash");
-            PlaySFX(AnimeDashSlashAttack.AttackSFX);
-            
-            yield return new WaitForSeconds(0.3f);
-            
-            Vector3 centerPos = player.position;
+
+            var settings = AnimeDashSettings ?? new AnimeDashSlashConfig();
+
+            ApplyAnimationSpeedMultiplier(settings.AnimationSpeedMultiplier);
+            TriggerAnimation(settings.AnimationTrigger);
+            PlaySFX(settings.AttackSFX);
+
+            if (settings.PreDashDelay > 0f)
+                yield return new WaitForSeconds(settings.PreDashDelay);
+
+            Vector3 centerPos = settings.UsePlayerPositionAsCenterAtStart ? player.position : transform.position;
+            centerPos.y = transform.position.y;
+
+            int dashCount = Mathf.Max(1, settings.DashTargetCount);
+            float radius = Mathf.Max(0.1f, settings.DashTargetRadius);
+            float dashDuration = Mathf.Max(0.01f, settings.DashTravelDuration);
+            float pauseDuration = Mathf.Max(0f, settings.PauseAtTargetDuration);
+            float turnSpeed = Mathf.Max(0f, settings.TurnSpeed);
+            float hitWindowStart = Mathf.Clamp01(settings.HitWindowStart);
+            float hitWindowEnd = Mathf.Clamp01(settings.HitWindowEnd);
+            if (hitWindowEnd < hitWindowStart)
+                hitWindowEnd = hitWindowStart;
+
+            bool useSpinDashColliderForAnimeDash = settings.UseSpinDashColliderForHitRange && spinDashHitboxCollider != null;
+            bool animeDashEnabledSpinDashCollider = false;
+            if (useSpinDashColliderForAnimeDash && !spinDashHitboxCollider.enabled)
+            {
+                spinDashHitboxCollider.enabled = true;
+                animeDashEnabledSpinDashCollider = true;
+            }
+
             agent.enabled = false;
-            
-            List<Vector3> points = new List<Vector3>();
+
+            List<Vector3> points = new List<Vector3>(dashCount);
             for (int i = 0; i < dashCount; i++)
             {
-                float angle = (i * 144f) * Mathf.Deg2Rad;
+                float angle = (i * settings.DashAngleStepDegrees) * Mathf.Deg2Rad;
                 Vector3 point = centerPos + new Vector3(
-                    Mathf.Cos(angle) * orbitRadius,
+                    Mathf.Cos(angle) * radius,
                     0f,
-                    Mathf.Sin(angle) * orbitRadius
+                    Mathf.Sin(angle) * radius
                 );
                 point.y = transform.position.y;
                 points.Add(point);
             }
-            
+
             for (int i = 0; i < points.Count; i++)
             {
                 Vector3 targetPoint = points[i];
                 Vector3 startPoint = transform.position;
-                
+                bool isFinalDash = i == points.Count - 1;
+
+                Vector3 dashDir = targetPoint - startPoint;
+                dashDir.y = 0f;
+                if (dashDir.sqrMagnitude > 0.001f && turnSpeed > 0f)
+                {
+                    Quaternion targetRot = Quaternion.LookRotation(dashDir.normalized);
+                    while (Quaternion.Angle(transform.rotation, targetRot) > 1f)
+                    {
+                        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRot, turnSpeed * Time.deltaTime);
+                        yield return null;
+                    }
+
+                    transform.rotation = targetRot;
+                }
+
                 float elapsed = 0f;
-                while (elapsed < 0.15f)
+                bool hitAppliedThisDash = false;
+                float previousT = 0f;
+                animeDashTriggerArmed = false;
+                bool animeDashWindowOpenedThisDash = false;
+                while (elapsed < dashDuration)
                 {
                     elapsed += Time.deltaTime;
-                    float t = elapsed / 0.15f;
+                    float t = Mathf.Clamp01(elapsed / dashDuration);
                     transform.position = Vector3.Lerp(startPoint, targetPoint, t);
-                    
-                    if (t > 0.4f && t < 0.6f)
+
+                    if (!hitAppliedThisDash)
                     {
-                        CheckMeleeHit(AnimeDashSlashAttack.BaseDamage, AttackCategory.Halberd, 3f);
+                        bool isInsideWindow = t >= hitWindowStart && t <= hitWindowEnd;
+                        bool crossedWindowStartThisFrame = previousT < hitWindowStart && t >= hitWindowStart;
+                        bool jumpedPastEntireWindowThisFrame = previousT < hitWindowStart && t > hitWindowEnd;
+
+                        if (isInsideWindow || crossedWindowStartThisFrame || jumpedPastEntireWindowThisFrame)
+                        {
+                            if (useSpinDashColliderForAnimeDash)
+                            {
+                                if (!animeDashWindowOpenedThisDash)
+                                {
+                                    animeDashTriggerDamage = settings.DamagePerHit;
+                                    animeDashTriggerArmed = true;
+                                    animeDashWindowOpenedThisDash = true;
+                                    if (spinDashHitboxCollider != null)
+                                        spinDashHitboxCollider.enabled = true;
+                                }
+                            }
+                            else
+                            {
+                                float animeDashRange = Mathf.Max(0.1f, settings.HitRange);
+                                hitAppliedThisDash = CheckMeleeHit(settings.DamagePerHit, AttackCategory.Halberd, animeDashRange);
+                            }
+                        }
                     }
-                    
+
+                    previousT = t;
+
                     yield return null;
                 }
-                
-                yield return new WaitForSeconds(0.1f);
+
+                animeDashTriggerArmed = false;
+                if (useSpinDashColliderForAnimeDash && spinDashHitboxCollider != null)
+                {
+                    spinDashHitboxCollider.enabled = !isFinalDash;
+                }
+
+                if (pauseDuration > 0f)
+                    yield return new WaitForSeconds(pauseDuration);
             }
-            
+
             agent.enabled = true;
             agent.Warp(transform.position);
-            
-            yield return new WaitForSeconds(0.5f);
+
+            // Exit the AnimeDash pose immediately after the final destination is reached.
+            animController?.PlayIdle(0.05f);
+
+            if (animeDashEnabledSpinDashCollider && spinDashHitboxCollider != null)
+                spinDashHitboxCollider.enabled = false;
+
+            if (settings.PostDashDelay > 0f)
+                yield return new WaitForSeconds(settings.PostDashDelay);
+
+            ResetAnimationSpeed();
         }
 
         private IEnumerator ExecuteWhirlwind()
         {
+            ApplyAnimationSpeedMultiplier(WhirlwindSettings.AnimationSpeedMultiplier);
             // Use animation trigger from config
             TriggerAnimation(WhirlwindSettings.AnimationTrigger);
             PlaySFX(WhirlwindSettings.SpinSFX);
@@ -1434,6 +1867,7 @@ namespace EnemyBehavior.Boss.Cleanser
             CheckAoEHit(WhirlwindSettings.SlamDamage, WhirlwindSettings.SlamAoERadius, AttackCategory.Halberd);
             
             yield return new WaitForSeconds(0.8f);
+            ResetAnimationSpeed();
         }
 
         /// <summary>
@@ -1445,6 +1879,7 @@ namespace EnemyBehavior.Boss.Cleanser
 
             yield return FaceTarget(player, 0.15f);
 
+            ApplyAnimationSpeedMultiplier(KnockbackSettings.AnimationSpeedMultiplier);
             TriggerAnimation(KnockbackSettings.AnimationTrigger);
             PlaySFX(KnockbackSettings.AttackSFX);
 
@@ -1489,70 +1924,7 @@ namespace EnemyBehavior.Boss.Cleanser
             }
 
             yield return new WaitForSeconds(0.5f);
-        }
-
-        /// <summary>
-        /// Executes the mini crescent wave ranged attack.
-        /// </summary>
-        private IEnumerator ExecuteMiniCrescentWave()
-        {
-            if (player == null) yield break;
-
-            yield return FaceTarget(player, 0.2f);
-
-            TriggerAnimation(MiniCrescentSettings.AnimationTrigger);
-            PlaySFX(MiniCrescentSettings.SlashSFX);
-
-            // Wait for animation slash point
-            yield return new WaitForSeconds(0.25f);
-
-            // Spawn crescent wave projectile
-            if (MiniCrescentSettings.WavePrefab != null)
-            {
-                Vector3 spawnPos = transform.position;
-                spawnPos.y += MiniCrescentSettings.WaveHeight;
-
-                var waveObj = Instantiate(MiniCrescentSettings.WavePrefab, spawnPos, transform.rotation);
-
-                // Configure wave movement
-                var rb = waveObj.GetComponent<Rigidbody>();
-                if (rb != null)
-                {
-                    Vector3 dir = (player.position - spawnPos).normalized;
-                    dir.y = 0;
-                    rb.linearVelocity = dir * MiniCrescentSettings.WaveSpeed;
-                }
-
-                // Set up damage on the wave if it has a damage component
-                var waveDamage = waveObj.GetComponent<CleanserProjectile>();
-                if (waveDamage != null)
-                {
-                    // Configure using existing projectile system
-                    var config = new SpareTossConfig
-                    {
-                        UseStraightPath = true,
-                        ReturnsOnStraightPath = false,
-                        ProjectileSpeedRange = new Vector2(MiniCrescentSettings.WaveSpeed, MiniCrescentSettings.WaveSpeed)
-                    };
-                    waveDamage.Initialize(player, transform, config);
-                }
-
-                // Auto-destroy after max distance travel time
-                float travelTime = MiniCrescentSettings.MaxDistance / MiniCrescentSettings.WaveSpeed;
-                Destroy(waveObj, travelTime);
-
-#if UNITY_EDITOR
-                EnemyBehaviorDebugLogBools.Log(nameof(CleanserBrain), "[Cleanser] Mini crescent wave fired!");
-#endif
-            }
-            else
-            {
-#if UNITY_EDITOR
-                EnemyBehaviorDebugLogBools.LogWarning(nameof(CleanserBrain), "[Cleanser] Mini crescent wave prefab not assigned!");
-#endif
-            }
-
-            yield return new WaitForSeconds(0.4f);
+            ResetAnimationSpeed();
         }
 
         /// <summary>
@@ -1567,6 +1939,7 @@ namespace EnemyBehavior.Boss.Cleanser
 
             yield return FaceTarget(player, 0.1f);
 
+            ApplyAnimationSpeedMultiplier(GapCloseDashSettings.AnimationSpeedMultiplier);
             TriggerAnimation(GapCloseDashSettings.AnimationTrigger);
             PlaySFX(GapCloseDashSettings.DashSFX);
 
@@ -1606,6 +1979,7 @@ namespace EnemyBehavior.Boss.Cleanser
 #endif
 
             yield return new WaitForSeconds(0.2f);
+            ResetAnimationSpeed();
         }
 
         #endregion
@@ -1628,20 +2002,35 @@ namespace EnemyBehavior.Boss.Cleanser
             }
         }
 
+#if UNITY_EDITOR
+        [ContextMenu("DEBUG/Run Ultimate Sequence")]
+        private void DebugRunUltimateSequence()
+        {
+            if (!Application.isPlaying || isDefeated || isExecutingUltimate)
+                return;
+
+            if (currentAttackCoroutine != null)
+            {
+                StopCoroutine(currentAttackCoroutine);
+                currentAttackCoroutine = null;
+            }
+
+            EndSpinDashHitboxPhase();
+
+            StartCoroutine(ExecuteUltimateAttack());
+        }
+#endif
+
         private IEnumerator ExecuteUltimateAttack()
         {
+            ApplyAnimationSpeedMultiplier(UltimateSettings.AnimationSpeedMultiplier);
+
             isExecutingUltimate = true;
             hasUsedUltimate = true;
             attacksSinceUltimate = 0;
             aerialHitsReceived = 0;
-            
-            // Force pickup before ultimate if available
-            if (dualWieldSystem != null && !dualWieldSystem.IsHoldingSpareWeapon 
-                && dualWieldSystem.AvailableSpareWeaponCount > 0)
-            {
-                dualWieldSystem.PickupSpareWeapon();
-                yield return new WaitUntil(() => !dualWieldSystem.IsPickingUp);
-            }
+            waitingForUltimateLowSweepEvent = false;
+            waitingForUltimateMidSweepEvent = false;
             
 #if UNITY_EDITOR
             EnemyBehaviorDebugLogBools.Log(nameof(CleanserBrain), "[Cleanser] ULTIMATE: Double Maximum Sweep initiated!");
@@ -1649,31 +2038,37 @@ namespace EnemyBehavior.Boss.Cleanser
 
             PlaySFX(UltimateSettings.InitiateSFX);
 
-            if (WallJumpPositions.Count > 0)
+            if (DoubleSweepPositions.Count > 0)
             {
-                Transform wallPos = WallJumpPositions[Random.Range(0, WallJumpPositions.Count)];
-                yield return JumpToPosition(wallPos.position, 1f);
+                TriggerAnimation(UltimateSettings.JumpArcBaseTrigger);
+                Transform sweepPos = DoubleSweepPositions[Random.Range(0, DoubleSweepPositions.Count)];
+                yield return JumpToPosition(sweepPos.position, 1f);
             }
             
             Vector3 arenaCenter = player != null ? player.position : transform.position + transform.forward * 10f;
             yield return FaceTarget(arenaCenter, 0.3f);
             
             // Sweeps
-            if (CrescentWavePrefab != null)
+            if (CanSpawnUltimateSweep(UltimateSettings.LowSweepProjectile))
             {
-                SpawnCrescentWave(UltimateSettings.LowSweepHeight, arenaCenter);
-                PlaySFX(UltimateSettings.SweepSFX);
+                pendingUltimateSweepTargetPos = arenaCenter;
+                waitingForUltimateLowSweepEvent = true;
+                TriggerAnimation(UltimateSettings.UltimateTrigger);
+                yield return WaitForUltimateLowSweepEventOrFallback();
             }
             yield return new WaitForSeconds(0.8f);
             
-            if (CrescentWavePrefab != null)
+            if (CanSpawnUltimateSweep(UltimateSettings.MidSweepProjectile))
             {
-                SpawnCrescentWave(UltimateSettings.MidSweepHeight, arenaCenter);
-                PlaySFX(UltimateSettings.SweepSFX);
+                pendingUltimateSweepTargetPos = arenaCenter;
+                waitingForUltimateMidSweepEvent = true;
+                TriggerAnimation(UltimateSettings.UltimateTrigger);
+                yield return WaitForUltimateMidSweepEventOrFallback();
             }
             yield return new WaitForSeconds(0.5f);
             
             Vector3 floatPos = arenaCenter + Vector3.up * UltimateSettings.PlatformRiseHeight;
+            TriggerAnimation(UltimateSettings.JumpArcBaseTrigger);
             yield return JumpToPosition(floatPos, 0.8f);
             
             if (platformController != null)
@@ -1687,22 +2082,8 @@ namespace EnemyBehavior.Boss.Cleanser
                 UltimateSettings.PlayCutsceneOnFirstUse = false;
             }
             
-            float chargeElapsed = 0f;
-            bool canceled = false;
-            
-            while (chargeElapsed < UltimateSettings.ChargeUpTime)
-            {
-                chargeElapsed += Time.deltaTime;
-                
-                if (aerialHitsReceived >= UltimateSettings.RequiredAerialHits)
-                {
-#if UNITY_EDITOR
-                    EnemyBehaviorDebugLogBools.Log(nameof(CleanserBrain), "[Cleanser] Ultimate can be canceled by plunge finisher!");
-#endif
-                }
-                
-                yield return null;
-            }
+            yield return ExecuteUltimateHoverPhase();
+            bool canceled = ultimateCanceledByAerial;
             
             if (platformController != null)
             {
@@ -1721,6 +2102,8 @@ namespace EnemyBehavior.Boss.Cleanser
             }
             else
             {
+                TriggerAnimation(UltimateSettings.JumpArcCancelTrigger);
+
                 // Notify aggression system that ultimate was canceled
                 if (aggressionSystem != null)
                 {
@@ -1730,36 +2113,246 @@ namespace EnemyBehavior.Boss.Cleanser
                 yield return ApplyStun(AerialFinisherStunDuration);
             }
             
-            // Release spare weapon after ultimate (returns magnetically to rest position)
-            if (dualWieldSystem != null && dualWieldSystem.IsHoldingSpareWeapon)
+            // Reset spare stockpile/lodged state after ultimate.
+            if (dualWieldSystem != null)
             {
-                dualWieldSystem.ReleaseCurrentWeapon();
+                while (dualWieldSystem.IsHoldingSpareWeapon)
+                {
+                    dualWieldSystem.ReleaseCurrentWeapon();
+                }
+
+                if (dualWieldSystem.LodgedWeaponCount > 0)
+                {
+                    dualWieldSystem.ReturnAllLodgedWeaponsToRest();
+                }
             }
-            
+
+            ResetAnimationSpeed();
             isExecutingUltimate = false;
+        }
+
+        private IEnumerator WaitForUltimateLowSweepEventOrFallback()
+        {
+            const float fallbackTimeout = 0.35f;
+            float elapsed = 0f;
+            while (waitingForUltimateLowSweepEvent && elapsed < fallbackTimeout)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            if (waitingForUltimateLowSweepEvent)
+            {
+                waitingForUltimateLowSweepEvent = false;
+                SpawnCrescentWave(UltimateSettings.LowSweepHeight, pendingUltimateSweepTargetPos);
+                PlaySFX(UltimateSettings.SweepSFX);
+            }
+        }
+
+        private IEnumerator WaitForUltimateMidSweepEventOrFallback()
+        {
+            const float fallbackTimeout = 0.35f;
+            float elapsed = 0f;
+            while (waitingForUltimateMidSweepEvent && elapsed < fallbackTimeout)
+            {
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            if (waitingForUltimateMidSweepEvent)
+            {
+                waitingForUltimateMidSweepEvent = false;
+                SpawnCrescentWave(UltimateSettings.MidSweepHeight, pendingUltimateSweepTargetPos);
+                PlaySFX(UltimateSettings.SweepSFX);
+            }
         }
 
         private void SpawnCrescentWave(float height, Vector3 targetPos)
         {
-            Vector3 spawnPos = transform.position;
-            spawnPos.y = transform.position.y + height;
-            
-            var waveObj = Instantiate(CrescentWavePrefab, spawnPos, Quaternion.identity);
-            
-            var rb = waveObj.GetComponent<Rigidbody>();
-            if (rb != null)
+            CrescentArcProjectileConfig sourceConfig = height <= (UltimateSettings.LowSweepHeight + 0.01f)
+                ? UltimateSettings.LowSweepProjectile
+                : UltimateSettings.MidSweepProjectile;
+
+            if (sourceConfig != null)
             {
-                Vector3 dir = (targetPos - spawnPos).normalized;
-                dir.y = 0;
-                rb.linearVelocity = dir * UltimateSettings.WaveSpeed;
+                var runtimeConfig = new CrescentArcProjectileConfig
+                {
+                    ProjectilePrefab = sourceConfig.ProjectilePrefab != null
+                        ? sourceConfig.ProjectilePrefab
+                        : CrescentWaveProjectileConfiguration?.ProjectilePrefab,
+                    ProjectileCount = sourceConfig.ProjectileCount,
+                    Damage = UltimateSettings.SweepDamage,
+                    Speed = sourceConfig.Speed > 0f ? sourceConfig.Speed : UltimateSettings.WaveSpeed,
+                    MaxDistance = sourceConfig.MaxDistance,
+                    SpawnHeight = sourceConfig.SpawnHeight,
+                    SpawnForwardOffset = sourceConfig.SpawnForwardOffset,
+                    ScaleRange = sourceConfig.ScaleRange,
+                    TiltAngleRange = sourceConfig.TiltAngleRange,
+                    SpreadStep = sourceConfig.SpreadStep,
+                    DamageCategory = sourceConfig.DamageCategory
+                };
+
+                if (runtimeConfig.ProjectilePrefab != null)
+                {
+                    SpawnCrescentArcProjectiles(runtimeConfig, targetPos, height);
+                    return;
+                }
             }
-            
-            Destroy(waveObj, 5f);
+
+            // Legacy fallback to rigidbody-style wave prefab.
+            if (CrescentWavePrefab != null)
+            {
+                Vector3 spawnPos = transform.position;
+                spawnPos.y = transform.position.y + height;
+
+                var waveObj = Instantiate(CrescentWavePrefab, spawnPos, Quaternion.identity);
+                var rb = waveObj.GetComponent<Rigidbody>();
+                if (rb != null)
+                {
+                    Vector3 dir = (targetPos - spawnPos).normalized;
+                    dir.y = 0;
+                    rb.linearVelocity = dir * UltimateSettings.WaveSpeed;
+                }
+
+                var waveProjectile = waveObj.GetComponent<CleanserProjectile>();
+                if (waveProjectile != null)
+                {
+                    waveProjectile.Damage = UltimateSettings.SweepDamage;
+                }
+
+                Destroy(waveObj, 5f);
+                return;
+            }
+        }
+
+        private bool CanSpawnUltimateSweep(CrescentArcProjectileConfig config)
+        {
+            bool hasSharedPrefab = CrescentWaveProjectileConfiguration != null && CrescentWaveProjectileConfiguration.ProjectilePrefab != null;
+            return hasSharedPrefab || (config != null && config.ProjectilePrefab != null) || CrescentWavePrefab != null;
+        }
+
+        private IEnumerator ExecuteUltimateHoverPhase()
+        {
+            isInUltimateHoverPhase = true;
+            ultimateCanceledByAerial = false;
+            aerialHitsReceived = 0;
+            ultimateHoverPauseTimer = 0f;
+
+            TriggerAnimation(stateUltimateHover);
+
+            float chargeElapsed = 0f;
+            while (chargeElapsed < UltimateSettings.ChargeUpTime)
+            {
+                if (ultimateCanceledByAerial)
+                {
+#if UNITY_EDITOR
+                    EnemyBehaviorDebugLogBools.Log(nameof(CleanserBrain), "[Cleanser] Ultimate canceled during hover phase by aerial finisher.");
+#endif
+                    break;
+                }
+
+                if (ultimateHoverPauseTimer > 0f)
+                {
+                    ultimateHoverPauseTimer -= Time.deltaTime;
+                }
+                else
+                {
+                    chargeElapsed += Time.deltaTime;
+                }
+                yield return null;
+            }
+            isInUltimateHoverPhase = false;
+        }
+
+        private void SpawnCrescentArcProjectiles(CrescentArcProjectileConfig config, Vector3 targetPos, float additionalHeight = 0f)
+        {
+            if (config == null)
+                return;
+
+            Vector3 baseDir = (targetPos - transform.position);
+            baseDir.y = 0f;
+            if (baseDir.sqrMagnitude < 0.001f)
+                baseDir = transform.forward;
+            baseDir.Normalize();
+
+            int count = Mathf.Max(1, config.ProjectileCount);
+            float centerOffset = (count - 1) * 0.5f;
+
+            for (int i = 0; i < count; i++)
+            {
+                float spreadOffset = (i - centerOffset) * config.SpreadStep;
+                float randomOffset = 0f;
+                float finalYaw = spreadOffset + randomOffset;
+                Vector3 dir = Quaternion.AngleAxis(finalYaw, Vector3.up) * baseDir;
+
+                Vector3 spawnPos = transform.position
+                    + transform.forward * config.SpawnForwardOffset
+                    + Vector3.up * (config.SpawnHeight + additionalHeight);
+
+                GameObject prefabToSpawn = config.ProjectilePrefab != null
+                    ? config.ProjectilePrefab
+                    : CrescentWaveProjectileConfiguration?.ProjectilePrefab;
+
+                if (prefabToSpawn == null)
+                    continue;
+
+                float tiltAngle = Random.Range(config.TiltAngleRange.x, config.TiltAngleRange.y);
+                Quaternion spawnRot = Quaternion.LookRotation(dir) * Quaternion.Euler(tiltAngle, 0f, 0f);
+                GameObject projectile = Instantiate(prefabToSpawn, spawnPos, spawnRot);
+
+                float scale = Random.Range(config.ScaleRange.x, config.ScaleRange.y);
+                if (Mathf.Abs(scale - 1f) > 0.001f)
+                {
+                    projectile.transform.localScale *= scale;
+                }
+
+                var arcProjectile = projectile.GetComponent<CleanserCrescentArcProjectile>();
+                if (arcProjectile != null)
+                {
+                    arcProjectile.Initialize(
+                        dir,
+                        config.Damage,
+                        config.Speed,
+                        config.MaxDistance,
+                        config.DamageCategory,
+                        config.CanBeParried,
+                        config.CanBeGuarded,
+                        config.GuardDamageMultiplier);
+                    continue;
+                }
+
+                var cleanserProjectile = projectile.GetComponent<CleanserProjectile>();
+                if (cleanserProjectile != null)
+                {
+                    cleanserProjectile.Damage = config.Damage;
+
+                    var straightConfig = new SpareTossConfig
+                    {
+                        UseStraightPath = true,
+                        ReturnsOnStraightPath = false,
+                        UseCurvedBoomerang = false,
+                        ProjectileSpeedRange = new Vector2(config.Speed, config.Speed)
+                    };
+
+                    cleanserProjectile.Initialize(player, transform, straightConfig, dualWieldSystem);
+                    continue;
+                }
+
+                // Fallback path if prefab uses Rigidbody-only motion.
+                var rb = projectile.GetComponent<Rigidbody>();
+                if (rb != null)
+                {
+                    rb.linearVelocity = dir * config.Speed;
+                }
+
+                Destroy(projectile, 5f);
+            }
         }
 
         private IEnumerator ExecuteMassiveStrike()
         {
             PlaySFX(UltimateSettings.MassiveStrikeSFX);
+            TriggerAnimation(UltimateSettings.JumpArcResolutionTrigger);
             
             Vector3 startPos = transform.position;
             Vector3 targetPos = startPos;
@@ -1812,13 +2405,41 @@ namespace EnemyBehavior.Boss.Cleanser
 
         public void OnAerialHitReceived()
         {
-            if (!isExecutingUltimate) return;
+            if (!isExecutingUltimate || !isInUltimateHoverPhase) return;
+
+            if (!WasHitByFullAerialComboPlungeFinisher())
+            {
+#if UNITY_EDITOR
+                EnemyBehaviorDebugLogBools.Log(nameof(CleanserBrain), "[Cleanser] Aerial hit during ultimate ignored (requires full aerial combo + plunge finisher).");
+#endif
+                return;
+            }
             
             aerialHitsReceived++;
+            if (aerialHitsReceived >= UltimateSettings.RequiredAerialHits)
+            {
+                ultimateCanceledByAerial = true;
+            }
             
 #if UNITY_EDITOR
             EnemyBehaviorDebugLogBools.Log(nameof(CleanserBrain), $"[Cleanser] Aerial hit received during ultimate! ({aerialHitsReceived}/{UltimateSettings.RequiredAerialHits})");
 #endif
+        }
+
+        private bool WasHitByFullAerialComboPlungeFinisher()
+        {
+            if (player == null)
+                return false;
+
+            AerialComboManager aerialCombo = player.GetComponent<AerialComboManager>()
+                ?? player.GetComponentInParent<AerialComboManager>()
+                ?? player.GetComponentInChildren<AerialComboManager>();
+
+            if (aerialCombo == null)
+                return false;
+
+            // Full aerial combo requirement: player used heavy (plunge) and had built at least 2 aerial fast hits.
+            return aerialCombo.HasUsedAerialHeavy && aerialCombo.AerialFastCount >= 2;
         }
 
         #endregion
@@ -1981,6 +2602,58 @@ namespace EnemyBehavior.Boss.Cleanser
             agent.Warp(targetPos);
         }
 
+        private float GetSpinDashSegmentDuration(float distance)
+        {
+            if (SpinDashSettings.MaxTravelDistance > 0f && distance > SpinDashSettings.MaxTravelDistance)
+                return Mathf.Max(0.01f, SpinDashSettings.LongDistanceTravelDuration);
+
+            return Mathf.Max(0.01f, distance / Mathf.Max(0.01f, SpinDashSettings.MoveSpeed));
+        }
+
+        private void ApplyAnimationSpeedMultiplier(float speedMultiplier)
+        {
+            if (animator == null)
+                return;
+
+            float clamped = Mathf.Max(0.01f, speedMultiplier);
+            animator.speed = defaultAnimatorSpeed * clamped;
+        }
+
+        private void ResetAnimationSpeed()
+        {
+            if (animator != null)
+                animator.speed = defaultAnimatorSpeed;
+        }
+
+        private IEnumerator WaitForAnimationStateToFinish(string stateName, float fallbackTimeout)
+        {
+            if (string.IsNullOrEmpty(stateName) || animController == null)
+            {
+                yield return new WaitForSeconds(fallbackTimeout);
+                yield break;
+            }
+
+            float elapsed = 0f;
+            bool hasStarted = false;
+            while (elapsed < fallbackTimeout)
+            {
+                elapsed += Time.deltaTime;
+
+                if (animController.IsPlaying(stateName, out float normalizedTime))
+                {
+                    hasStarted = true;
+                    if (normalizedTime >= 1f)
+                        break;
+                }
+                else if (hasStarted)
+                {
+                    break;
+                }
+
+                yield return null;
+            }
+        }
+
         private bool CheckMeleeHit(float damage, AttackCategory category, float range = 3f)
         {
             if (player == null) return false;
@@ -1988,6 +2661,13 @@ namespace EnemyBehavior.Boss.Cleanser
             float dist = Vector3.Distance(transform.position, player.position);
             if (dist > range) return false;
             
+            return ApplyMeleeHitToPlayer(damage, category);
+        }
+
+        private bool ApplyMeleeHitToPlayer(float damage, AttackCategory category)
+        {
+            if (player == null) return false;
+
             if (category == AttackCategory.Halberd)
             {
                 if (CombatManager.isParrying)
@@ -2013,10 +2693,223 @@ namespace EnemyBehavior.Boss.Cleanser
             if (player.TryGetComponent<IHealthSystem>(out var health))
             {
                 health.LoseHP(damage);
+
+                bool shouldStagger = category switch
+                {
+                    AttackCategory.Halberd => staggerPlayerOnHalberdMeleeHit,
+                    AttackCategory.Wing => staggerPlayerOnWingMeleeHit,
+                    _ => false
+                };
+
+                if (shouldStagger && health is PlayerHealthBarManager playerHealth)
+                    playerHealth.ApplyForcedStagger(meleeHitStaggerDuration, resetPlayerComboOnMeleeStagger);
+
                 return true;
             }
             
             return false;
+        }
+
+        private bool TryApplyTriggerHitToPlayer(float damage, AttackCategory category)
+        {
+            if (player == null)
+                return false;
+
+            return ApplyMeleeHitToPlayer(damage, category);
+        }
+
+        private float GetActiveHitboxRange(AttackCategory category)
+        {
+            if (category == AttackCategory.Wing)
+            {
+                if (wingHitboxCollider != null)
+                {
+                    Bounds b = wingHitboxCollider.bounds;
+                    float extent = Mathf.Max(b.extents.x, b.extents.z);
+                    if (extent > 0.01f)
+                        return Mathf.Max(1f, extent * 2f);
+                }
+            }
+            else
+            {
+                float maxExtent = 0f;
+
+                if (halberdHitboxColliders != null && halberdHitboxColliders.Count > 0)
+                {
+                    for (int i = 0; i < halberdHitboxColliders.Count; i++)
+                    {
+                        Collider col = halberdHitboxColliders[i];
+                        if (col == null)
+                            continue;
+
+                        Bounds b = col.bounds;
+                        float extent = Mathf.Max(b.extents.x, b.extents.z);
+                        if (extent > maxExtent)
+                            maxExtent = extent;
+                    }
+                }
+
+                if (maxExtent > 0.01f)
+                    return Mathf.Max(1f, maxExtent * 2f);
+            }
+
+            if (currentAttack != null)
+                return Mathf.Max(1f, currentAttack.RangeMax);
+
+            return 3f;
+        }
+
+        private float GetSpinDashHitboxRange(float fallbackRange)
+        {
+            if (spinDashHitboxCollider != null)
+            {
+                Bounds b = spinDashHitboxCollider.bounds;
+                float extent = Mathf.Max(b.extents.x, b.extents.z);
+                if (extent > 0.01f)
+                    return Mathf.Max(1f, extent * 2f);
+            }
+
+            return Mathf.Max(1f, fallbackRange);
+        }
+
+        private void SetHalberdHitboxesEnabled(bool enabled)
+        {
+            if (halberdHitboxColliders == null)
+                return;
+
+            for (int i = 0; i < halberdHitboxColliders.Count; i++)
+            {
+                Collider col = halberdHitboxColliders[i];
+                if (col != null)
+                    col.enabled = enabled;
+            }
+        }
+
+        private void SetWingHitboxEnabled(bool enabled)
+        {
+            if (wingHitboxCollider != null)
+                wingHitboxCollider.enabled = enabled;
+        }
+
+        private void SetAllMeleeHitboxesEnabled(bool enabled)
+        {
+            SetHalberdHitboxesEnabled(enabled);
+            SetWingHitboxEnabled(enabled);
+        }
+
+        private bool TrySpinDashHit(float damage, float fallbackRange)
+        {
+            if (!spinDashHitboxPhaseActive || !spinDashHitboxArmed)
+                return false;
+
+            float range = GetSpinDashHitboxRange(fallbackRange);
+            if (!CheckMeleeHit(damage, AttackCategory.Halberd, range))
+                return false;
+
+            spinDashHitboxArmed = false;
+            if (spinDashHitboxCollider != null)
+            {
+                spinDashHitboxCollider.enabled = false;
+            }
+
+            if (spinDashHitboxRearmCoroutine != null)
+                StopCoroutine(spinDashHitboxRearmCoroutine);
+
+            spinDashHitboxRearmCoroutine = StartCoroutine(RearmSpinDashHitboxAfterDelay());
+            return true;
+        }
+
+        private void BeginSpinDashHitboxPhase()
+        {
+            spinDashHitboxPhaseActive = true;
+            spinDashHitboxArmed = true;
+            spinDashRemainingHits = Mathf.Max(0, SpinDashSettings.MaxHitCount);
+            spinDashTriggerDamage = SpinDashSettings.DamagePerHit;
+
+            if (spinDashHitboxCollider != null)
+            {
+                spinDashHitboxCollider.enabled = true;
+            }
+        }
+
+        private void EndSpinDashHitboxPhase()
+        {
+            spinDashHitboxPhaseActive = false;
+            spinDashHitboxArmed = false;
+            animeDashTriggerArmed = false;
+
+            if (spinDashHitboxRearmCoroutine != null)
+            {
+                StopCoroutine(spinDashHitboxRearmCoroutine);
+                spinDashHitboxRearmCoroutine = null;
+            }
+
+            if (spinDashHitboxCollider != null)
+            {
+                spinDashHitboxCollider.enabled = false;
+            }
+        }
+
+        public void HandleSpinDashHitboxTrigger(Collider other)
+        {
+            if (other == null || player == null)
+                return;
+
+            Transform otherTransform = other.transform;
+            bool isPlayerCollider = otherTransform == player || otherTransform.IsChildOf(player) || player.IsChildOf(otherTransform);
+            if (!isPlayerCollider)
+            {
+                CharacterController cc = other.GetComponentInParent<CharacterController>();
+                isPlayerCollider = cc != null && (cc.transform == player || cc.transform.IsChildOf(player) || player.IsChildOf(cc.transform));
+            }
+
+            if (!isPlayerCollider)
+                return;
+
+            if (spinDashHitboxPhaseActive && spinDashHitboxArmed && spinDashRemainingHits > 0)
+            {
+                if (TryApplyTriggerHitToPlayer(spinDashTriggerDamage, AttackCategory.Halberd))
+                {
+                    spinDashRemainingHits--;
+                    spinDashHitboxArmed = false;
+
+                    if (spinDashHitboxCollider != null)
+                        spinDashHitboxCollider.enabled = false;
+
+                    if (spinDashHitboxRearmCoroutine != null)
+                        StopCoroutine(spinDashHitboxRearmCoroutine);
+
+                    if (spinDashRemainingHits > 0)
+                        spinDashHitboxRearmCoroutine = StartCoroutine(RearmSpinDashHitboxAfterDelay());
+                }
+            }
+            else if (animeDashTriggerArmed)
+            {
+                if (TryApplyTriggerHitToPlayer(animeDashTriggerDamage, AttackCategory.Halberd))
+                {
+                    animeDashTriggerArmed = false;
+                    if (spinDashHitboxCollider != null)
+                        spinDashHitboxCollider.enabled = false;
+                }
+            }
+        }
+
+        private IEnumerator RearmSpinDashHitboxAfterDelay()
+        {
+            float delay = Mathf.Max(0f, spinDashHitboxRearmDelay);
+            if (delay > 0f)
+                yield return WaitForSecondsCache.Get(delay);
+
+            if (spinDashHitboxPhaseActive)
+            {
+                spinDashHitboxArmed = true;
+                if (spinDashHitboxCollider != null)
+                {
+                    spinDashHitboxCollider.enabled = true;
+                }
+            }
+
+            spinDashHitboxRearmCoroutine = null;
         }
 
         private void CheckAoEHit(float damage, float radius, AttackCategory category)
@@ -2109,6 +3002,7 @@ namespace EnemyBehavior.Boss.Cleanser
             }
             
             TriggerAnimation(triggerDeath);
+            ResetAnimationSpeed();
             UnregisterFromAttackQueue();
             
 #if UNITY_EDITOR
@@ -2134,4 +3028,5 @@ namespace EnemyBehavior.Boss.Cleanser
 
         #endregion
     }
+
 }
