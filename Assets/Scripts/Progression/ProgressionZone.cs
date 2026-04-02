@@ -1,6 +1,11 @@
-using System;
-using UIandUXSystems.HUD;
-using Unity.VisualScripting;
+/*
+ * Written by: Will T
+ * 
+ * ProgressionZone is an abstract base class for any trigger zones.
+ * It automatically communicates with the ProgressionManager within the scene to register itself in its database.
+ * 
+ */
+
 using UnityEngine;
 
 namespace Progression
@@ -57,6 +62,9 @@ namespace Progression
 
         protected virtual void Awake()
         {
+            // Ensures the BoxCollider is set up properly as a trigger volume.
+            // Additionally caches it for later use.
+
             progressionCollider = GetComponent<BoxCollider>();
 
             if (progressionCollider == null)
@@ -67,6 +75,8 @@ namespace Progression
 
         protected virtual void Start()
         {
+            // Registers the encounter with the progression manager and also sets its initial state from its settings.
+
             AddToManager();
 
             if (!startEnabled) DisableZone();
@@ -75,6 +85,10 @@ namespace Progression
 
         private void AddToManager() => ProgressionManager.AddProgressable(this);
 
+        /// <summary>
+        /// Enables the encounter zone to be triggerable, allowing the player to now walk into the zone and start the encounter.
+        /// If the player is already within the confines of the zone, it will start immediately.
+        /// </summary>
         public void EnableZone()
         {
             zoneEnabled = true;
@@ -89,10 +103,13 @@ namespace Progression
             }
             UpdateCollider();
 
-            // If the player is already in the zone when it gets enabled, we need to manually trigger the enter logic since OnTriggerEnter won't be called until they exit and re-enter.
+            // If the player is already in the zone when it gets enabled, manually trigger the enter logic since OnTriggerEnter won't be called until they exit and re-enter.
             if (zoneActive) PlayerEnteredZone();
         }
 
+        /// <summary>
+        /// Disables the encounter zone to prevent the player from triggering it.
+        /// </summary>
         public void DisableZone()
         {
             zoneEnabled = false;
@@ -128,7 +145,16 @@ namespace Progression
             PlayerExitedZone();
         }
 
+        /// <summary>
+        /// Class specific functionality for when the player enters the encounter zone.
+        /// Automatically called when the player enters the trigger volume when its enabled.
+        /// </summary>
         protected abstract void PlayerEnteredZone();
+
+        /// <summary>
+        /// Class specific functionality for when the player exits the encounter zone.
+        /// Automatically called when the player exits the trigger volume when its enabled.
+        /// </summary>
         protected abstract void PlayerExitedZone();
         #endregion
 
@@ -137,6 +163,8 @@ namespace Progression
 
         protected virtual void OnDrawGizmos()
         {
+            // Draws a wireframe box to help visualize the confines of the encounter zone in the editor.
+
             if (progressionCollider == null)
                 progressionCollider = GetComponent<BoxCollider>();
 

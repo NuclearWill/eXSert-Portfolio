@@ -1,7 +1,18 @@
+/*
+ * Written by: Wil T
+ * 
+ * Serves as a checkpoint that the player can trigger by entering its zone.
+ * When players are defeated, they are respawned at the most recently triggered checkpoint.
+ * 
+ * It is currently set up that when the player is defeated, the whole scene is reloaded.
+ * However, it is planned to transition to be able to reset the scene with reloaded the entire thing, allowing to keep partial progression in a level.
+ * 
+ * The Checkpoint script was originally written by me, however other programmers have later added savefile functionality and tweaked the respawn function.
+ */
+
 using System;
 using System.Collections;
 using UI.Loading;
-using UIandUXSystems.HUD;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -32,6 +43,7 @@ namespace Progression.Checkpoints
         #endregion
 
         public string CheckpointId => string.IsNullOrWhiteSpace(checkpointName) ? gameObject.name : checkpointName;
+        
         public SceneAsset CheckpointSceneAsset => ResolveCheckpointSceneAsset();
 
         private static readonly bool ReloadSceneOnRespawn = true;

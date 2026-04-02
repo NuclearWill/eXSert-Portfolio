@@ -1,12 +1,11 @@
 /*
- * Author: Will Thomsen
+ * Written by: Will Thomsen
  * 
  * Basic Scene ScriptableObject to hold scene names for easy reference.
  * 
  * Improved to be able to find the SceneAssets gameobjects are contained within
  */
 
-using Progression.Checkpoints;
 using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -16,12 +15,15 @@ using Scene = UnityEngine.SceneManagement.Scene;
 [HelpURL("https://docs.google.com/document/d/18pi24ZJ65GG307F6SvKpSoHPs0izxSb6yZ6cfjvYqMQ/edit?pli=1&tab=t.0#bookmark=id.jla7jdxhssmh")]
 public class SceneAsset : ScriptableObject
 {
-    // Data-only: expose the ScriptableObject name as the scene name
+    // Automatically uses the name of the SO to determine its corresponding scene.
     public string SceneName { get => this.name; }
+
+    // Implicit operators help convert between SceneAsset, string, and generic Scene types.
     public static implicit operator string(SceneAsset asset) => asset.SceneName; // Allow implicit conversion to string for easy use in SceneManager functions
     public static implicit operator SceneAsset(string name) => GetSceneAsset(name); // Allow implicit conversion from string to SceneAsset for easy retrieval
     public static implicit operator Scene(SceneAsset asset) => SceneManager.GetSceneByName(asset.SceneName);
-    public override string ToString() => SceneName;
+    
+    public override string ToString() => SceneName; // Outputs the scenes name as a string.
 
     // Forwarders kept for backward compatibility; prefer SceneLoader API.
     public static bool PlayerLoaded => SceneLoader.PlayerLoaded;

@@ -1,10 +1,14 @@
+/*
+ * Written by: Will T
+ * 
+ * CombatEncounter is meant to set up a fight with generic enemies in waves.
+ * It utilizes the Wave script to help manage the different waves of enemies.
+ */
+
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using UIandUXSystems.HUD;
-using Unity.VisualScripting;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 namespace Progression.Encounters
 {
@@ -92,8 +96,7 @@ namespace Progression.Encounters
         {
             base.CleanupEncounter();
 
-            foreach (Wave wave in allWaves)
-                CleanupWave(wave);
+            foreach (Wave wave in allWaves) CleanupWave(wave);
 
             OnEncounterCompleted -= DropItem;
             OnEncounterCompleted -= LoadSceneOnClear;
@@ -126,6 +129,12 @@ namespace Progression.Encounters
             encounterStarted = true;
             SpawnNextWave();
         }
+
+
+        /*
+         * The DropItem and LoadSceneOnClear functions were both later additions made by another programmer.
+         * They were added to add further functionality to the encounter when its compleated.
+         */
 
         private void DropItem()
         {
@@ -238,6 +247,8 @@ namespace Progression.Encounters
             }
         }
 
+        // This is a special editor function which makes it easier to set up new waves for the encounter.
+        // Its a tool for designers to make the script easier and faster to work with.
         [ContextMenu("Generate New Wave")]
         public GameObject GenerateNewWave()
         {

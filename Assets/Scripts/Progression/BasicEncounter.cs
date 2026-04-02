@@ -1,8 +1,10 @@
 /*
- * Made by Brandon, Implemented by Will
+ * Written by: Will T
  * 
- * The core framework for implementing the Encounters
+ * Basic Encounter is an abstract class that inherits from ProgressionZone.
+ * It currently serves as a base for combat encounters and puzzle encounters.
  * 
+ * Meant to be a template for progression which requires a task to be completed, like defeating enemies or compleating a puzzle.
  */
 
 using System;
@@ -31,17 +33,21 @@ namespace Progression.Encounters
         /// Indicates whether the encounter has been completed
         /// </summary>
         public bool isCompleted { get; private set; } = false;
-        public event Action OnEncounterCompleted;
 
-        public bool isSetup => !isCleanedUp;
+        /// <summary>
+        /// An event that triggers when the encounter is completed.
+        /// </summary>
+        public event Action OnEncounterCompleted;
 
         /// <summary>
         /// Indicates whether the encounter has been cleaned up after completion.
         /// </summary>
         public bool isCleanedUp { get; private set; } = true;
+        public bool isSetup => !isCleanedUp;
 
         // Event to update the objective text in the HUD, passing the new objective string as a parameter
-        public event System.Action<HUDMessage> UpdateObjective;
+        public event Action<HUDMessage> UpdateObjective;
+
         protected void InvokeUpdateObjective(string newObjective) => 
             UpdateObjective?.Invoke(new(HUDMessageType.Objective, newObjective));
 

@@ -1,4 +1,13 @@
-using System.Collections.Generic;
+/*
+ * Written by: Will T
+ * 
+ * Puzzle Encounter is meant to organize any sort of puzzle within a level.
+ * It allows for all different types of puzzles to communicate with progression manager while also having similar checks for other scripts to compare to regardless of puzzle type.
+ * 
+ * I originally wrote the script with the idea of having one PuzzlePart and one PuzzleInteraction point per puzzle.
+ * However as level design progressed, some puzzles now use multiple interaction points, and another programmer made the edits for that functionality.
+ */
+
 using UnityEngine;
 
 namespace Progression.Encounters
@@ -6,12 +15,6 @@ namespace Progression.Encounters
     [HelpURL("https://docs.google.com/document/d/18pi24ZJ65GG307F6SvKpSoHPs0izxSb6yZ6cfjvYqMQ/edit?pli=1&tab=t.0#bookmark=id.mx9wqx5qgrio")]
     public class PuzzleEncounter : BasicEncounter
     {
-        /*
-         * reminder to self: I need to add a way to call HandleOnComplete from the basicEncounter
-         * It should be fine for now though.
-         * I also just need to generally give this script a lookover too to make sure its functioning optimal.
-         */
-
         protected override Color DebugColor => Color.purple;
 
         #region Inspector Setup

@@ -2,7 +2,10 @@
  * Written by: Will T
  * 
  * A basic script which just handles the tutorial progression in the elevator scene.
- * Designed purely for the tutorial within the elevator sequence, not intended to be used anywhere else.
+ * Designed purely for the tutorial within the elevator sequence, not currently intended to be used anywhere else.
+ *
+ * Uses event Action subscriptions to monitor when key tutorial milestones are met.
+ * Events use gates to ensure that events dont trigger tutorial progression out of order or multiple times.
  */
 
 using Managers.TimeLord;
@@ -56,7 +59,6 @@ public class TutorialHandler : MonoBehaviour
     private void OnEnable()
     {
         tutorialEntry.OnEntryCollected += OnEntryCollected;
-        tutorialEntry.OnEntryRead += OnEntryRead;
 
         // Subscribe to PlayerAttackManager attack-type events
         PlayerAttackManager.OnSingleAttack += OnPlayerAttack;
@@ -70,7 +72,6 @@ public class TutorialHandler : MonoBehaviour
     private void OnDisable()
     {
         tutorialEntry.OnEntryCollected -= OnEntryCollected;
-        tutorialEntry.OnEntryRead -= OnEntryRead;
 
         // Unsubscribe from PlayerAttackManager events
         PlayerAttackManager.OnSingleAttack -= OnPlayerAttack;
@@ -176,104 +177,4 @@ public class TutorialHandler : MonoBehaviour
 
         SceneLoader.Load(nextScene, loadScreen: false); // Loads the next scene for the player
     }
-
-    #region -------------- CURRENTLY DEPRECATED FUNCTIONALITY --------------------------------
-
-    // Specifically waits for the game to resume before enabling the fight.
-    // Doing it while game is paused breaks everything for SOME REASON
-    // Doing any sort of logic during or near the pausing of the game causes really weird bugs
-    // So it is not being used currently
-    private void OnEntryRead()
-    {
-        // If a retry coroutine is already running, stop it before starting a new one.
-        if (enableRetryRoutine != null)
-        {
-            Debug.Log("[TutorialHandler] Stopping existing retry coroutine before starting a new one.");
-            StopCoroutine(enableRetryRoutine);
-            enableRetryRoutine = null;
-        }
-
-        // Start a coroutine that will try to enable the encounter every 3 seconds until it succeeds.
-        enableRetryRoutine = StartCoroutine(TryEnableEncounterUntilSuccess());
-
-        // PauseCoordinator.OnResumed += PauseCoordinator_OnResumed;
-
-        void PauseCoordinator_OnResumed()
-        {
-            PauseCoordinator.OnResumed -= PauseCoordinator_OnResumed;
-
-            
-        }
-    }
-
-    // Coroutine that repeatedly attempts to enable the encounter every EncounterRetryInterval seconds.
-    // Stops when the encounter is successfully enabled or when it's clear the GameObject has been destroyed.
-    private IEnumerator TryEnableEncounterUntilSuccess()
-    {
-        while (true)
-        {
-            // If the serialized reference isn't assigned yet, retry after delay.
-            if (singleTargetFight == null)
-            {
-                Debug.Log($"[TutorialHandler] singleTargetFight is null. Retrying in {EncounterRetryInterval} seconds.");
-                yield return new WaitForSecondsRealtime(EncounterRetryInterval);
-                continue;
-            }
-
-            // If the referenced object's GameObject has been destroyed, abort retries.
-            if (singleTargetFight.gameObject == null)
-            {
-                Debug.LogWarning("[TutorialHandler] singleTargetFight GameObject appears destroyed. Aborting retries.");
-                enableRetryRoutine = null;
-                yield break;
-            }
-
-            // Attempt to enable the encounter and stop retrying.
-            singleTargetFight.EnableZone();
-            enableRetryRoutine = null;
-            yield break;
-        }
-    }
-
-    // Continuously watches the singleTargetFight reference and logs transitions between alive/null/destroyed.
-    // Useful to detect when/if the CombatEncounter becomes destroyed during gameplay.
-    private IEnumerator MonitorSingleTargetFight()
-    {
-        wasDestroyedState = (singleTargetFight == null) || (singleTargetFight != null && singleTargetFight.gameObject == null);
-
-        // Initial state log
-        Debug.Log($"[TutorialHandler] Monitor started. singleTargetFight initial destroyedState = {wasDestroyedState}.");
-
-        while (true)
-        {
-            bool referenceIsNull = singleTargetFight == null; // Unity's overloaded == handles destroyed objects
-            bool gameObjectMissing = false;
-
-            if (!referenceIsNull)
-            {
-                // Accessing gameObject is safe here because referenceIsNull is false.
-                gameObjectMissing = singleTargetFight.gameObject == null;
-            }
-
-            bool isDestroyedNow = referenceIsNull || gameObjectMissing;
-
-            if (isDestroyedNow != wasDestroyedState)
-            {
-                wasDestroyedState = isDestroyedNow;
-
-                if (isDestroyedNow)
-                {
-                    Debug.LogError($"[TutorialHandler] DETECTED: singleTargetFight became null/destroyed at time {Time.realtimeSinceStartup:F2}s. " +
-                                   $"Reference null: {referenceIsNull}, GameObject missing: {gameObjectMissing}");
-                }
-                else
-                {
-                    Debug.Log($"[TutorialHandler] singleTargetFight reference restored/assigned at time {Time.realtimeSinceStartup:F2}s.");
-                }
-            }
-
-            yield return new WaitForSecondsRealtime(DestroyMonitorInterval);
-        }
-    }
-    #endregion
 }

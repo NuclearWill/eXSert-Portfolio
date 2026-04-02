@@ -1,3 +1,9 @@
+/*
+ * Written by: Will T
+ * 
+ * A trigger zone which loads or unloads a specific scene when the player enters it.
+ */
+
 using UnityEngine;
 
 namespace Progression.SceneManagement
@@ -6,6 +12,7 @@ namespace Progression.SceneManagement
     [HelpURL("https://docs.google.com/document/d/18pi24ZJ65GG307F6SvKpSoHPs0izxSb6yZ6cfjvYqMQ/edit?pli=1&tab=t.0#bookmark=id.ifc87dwst3ky")]
     public class SceneLoadZone : ProgressionZone
     {
+        #region Inspector Setup
         [SerializeField, Tooltip("Should the scene be loaded or unloaded? Check to load scene")]
         private bool loadScene = true;
         [SerializeField, CriticalReference, Tooltip("The scene to load when the player enters this zone.")]
@@ -15,6 +22,7 @@ namespace Progression.SceneManagement
 
         [SerializeField, Tooltip("Optional object to enable after this zone unloads its target scene. Useful for turning on a blocker in the current scene.")]
         private GameObject enableObjectAfterUnload;
+        #endregion
 
         protected override Color DebugColor => Color.yellow;
 
@@ -61,6 +69,12 @@ namespace Progression.SceneManagement
             Debug.Log($"Loading scene {sceneToManage.name} due to player entering zone {this.gameObject.name}.");
             SceneLoader.Load(sceneToManage, loadScreen: false);
         }
+
+        /*
+         * Preloading is a feature that another programmer later added on for boss specific functionality.
+         * 
+         * The two public methods below were not written by me.
+         */
 
         public void PreloadManagedScene()
         {

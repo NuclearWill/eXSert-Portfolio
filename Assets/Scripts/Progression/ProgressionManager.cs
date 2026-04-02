@@ -1,11 +1,13 @@
 /* 
-    Written by Brandon Wahl
-
-    This script manages the progression of a zone by tracking the completion status of multiple puzzles and combat encounters.
-    It keeps track of all the encounters within the scene and manages communication between the different encounters.
-    
-    Written later on by Will T
-*/
+ * Written by Will T
+ * 
+ * The ProgressionManager is responsible for managing the state of all progression related systems within a specific scene.
+ * They use a special version of singleton pattern (SceneSingleton) to allow for multiple independent managers across each scene.
+ * Anything that inherits from ProgressionZone will automatically register itself with the manager in its scene.
+ * 
+ * Special functionality was added so that if a designer plays a level scene by itself.
+ * The manager will automatically load the player scene and set up the player at the first checkpoint to allow for easier testing.
+ */
 
 using Singletons;
 using System.Collections;
@@ -18,8 +20,6 @@ namespace Progression
     using Encounters;
     using Checkpoints;
     using SceneManagement;
-    using System.Runtime.CompilerServices;
-    using UnityEngine.SceneManagement;
 
     [HelpURL("https://docs.google.com/document/d/18pi24ZJ65GG307F6SvKpSoHPs0izxSb6yZ6cfjvYqMQ/edit?pli=1&tab=t.0#bookmark=id.ba7p6f215mok")]
     [DefaultExecutionOrder(0)] // Ensure this executes before any encounters or progression zones, which may rely on it to register themselves in Awake
@@ -46,14 +46,13 @@ namespace Progression
          * If true, the manager will automatically load the player scene.
          * It will also move the player to the first checkpoint's spawn point.
          */
-        private static bool IsolatedLoad = true; // If the scene is being loaded by itself or not
+private static bool IsolatedLoad = true; // If the scene is being loaded by itself or not
         private string editorBootstrapLoadingScreenSuppressionId;
 #endif
 
         /// <summary>
         /// Indicates whether all encounters in the scene have been completed
         /// </summary>
-        private bool allZonesComplete = false;
         private int totalEncountersInScene = 0;
 
         private readonly List<BasicEncounter> encounterCompletionMap = new();
@@ -69,7 +68,7 @@ namespace Progression
         #region Monobehavior Methods
         protected override void Awake()
         {
-            base.Awake(); // Singleton behavior
+            base.Awake(); // Scene Singleton behavior
 
 #if UNITY_EDITOR
             if (ShouldSuppressLoadingScreenForEditorBootstrap())
@@ -98,12 +97,12 @@ namespace Progression
                 // Ensure the SceneLoader is initialized so that it can properly load the player scene
                 SceneLoader.Initialize();
                 AsyncOperation playerLoad = SceneLoader.LoadPlayerScene();
-                if (playerLoad == null)
-                {
-                    ReleaseEditorBootstrapLoadingScreenSuppression();
-                }
+
+                if (playerLoad == null) ReleaseEditorBootstrapLoadingScreenSuppression();
+                
                 else
                 {
+                    // When the player scene completes loading, spawn the player at the first checkpoint.
                     playerLoad.completed += _ =>
                     {
                         Player.SpawnPlayerAtCheckpoint();
@@ -117,6 +116,13 @@ namespace Progression
         }
 
 #if UNITY_EDITOR
+        /*
+         * These small methods and there specific implementation were added by another programmer.
+         * The goal was to remove the loading screen while in editor mode to set up time.
+         * 
+         * The basic idea of automatically loading the player scene when loading the level scene was my idea and I orginally implemented it.
+         */
+
         private bool ShouldSuppressLoadingScreenForEditorBootstrap()
         {
             return IsolatedLoad && SceneAsset.LoadedSceneCount == 1 && !SceneAsset.PlayerLoaded;
@@ -154,14 +160,11 @@ namespace Progression
         }
         #endregion
 
-        private void UpdateObjective(HUDMessage message)
-        {
-            PlayerHUD.NewMessage(message);
-        }
+        private void UpdateObjective(HUDMessage message) => PlayerHUD.NewMessage(message);
 
         #region Progression Management
         /// <summary>
-        /// Adds the encounter to the manager's database
+        /// Adds the encounter to the manager's database.
         /// </summary>
         /// <param name="encounter"></param>
         internal static void AddProgressable(ProgressionZone zone)
@@ -196,6 +199,15 @@ namespace Progression
             }
         }
         #endregion
+
+        #region Prewarming Logic
+        /*
+         * I implemented the enemy object pooler and its prewarming functions.
+         * I added a simple manual prewarming request for the progression manager.
+         * 
+         * However, that has since been replaced by another programmer with the ability for the manager to automatically determine its prewarming count.
+         * All functionality present below in this specific script are not my work.
+         */
 
         private void PrewarmEnemies()
         {
@@ -344,6 +356,6 @@ namespace Progression
                     yield return component;
             }
         }
+        #endregion
     }
 }
-

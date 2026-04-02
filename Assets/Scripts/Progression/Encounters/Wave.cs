@@ -1,6 +1,13 @@
+/*
+ * Written by: Will T
+ * 
+ * A minor class meant to work exclusvily under CombatEncounter to manage the specific waves of an encounter.
+ * 
+ * It handles the spawning and tracking of enemies within its wave, and sends notifications to the CombatEncounter when needed.
+ */
+
 using System;
 using System.Collections.Generic;
-using UIandUXSystems.HUD;
 using UnityEngine;
 
 namespace Progression.Encounters
